@@ -1,6 +1,5 @@
-import { IssueDetailClient } from "@/components/issues/IssueDetailClient";
+import { VerifiedEmptyPage } from "@/components/common/VerifiedEmptyPage";
 
-export default async function IssueDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = await params;
-  return <IssueDetailClient id={id} />;
+export default function Page() {
+  return <VerifiedEmptyPage eyebrow="ISSUE DETAIL" title="记录详情" />;
 }

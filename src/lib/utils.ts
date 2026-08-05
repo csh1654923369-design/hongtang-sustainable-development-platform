@@ -1,4 +1,4 @@
-import { IssueStatus, MapFeatureType, ProjectStatus, ReviewStatus, UserRole } from "@/types";
+import { CommunityResourceCategory, IssueStatus, MapFeatureType, MicroActionStatus, ProjectStatus, ReviewStatus, UserRole } from "@/types";
 
 export const roleLabels: Record<UserRole, string> = {
   [UserRole.Visitor]: "游客",
@@ -25,17 +25,44 @@ export const projectStatusLabels: Record<ProjectStatus, string> = {
   [ProjectStatus.Maintenance]: "持续维护",
 };
 
+export const microActionStatusLabels: Record<MicroActionStatus, string> = {
+  [MicroActionStatus.Pending]: "待轻量核对",
+  [MicroActionStatus.Recruiting]: "招募伙伴",
+  [MicroActionStatus.Experimenting]: "试验进行中",
+  [MicroActionStatus.Reviewing]: "共同复盘",
+  [MicroActionStatus.Completed]: "已完成",
+};
+
 export const mapFeatureLabels: Record<MapFeatureType, string> = {
+  [MapFeatureType.Garden]: "小花园",
+  [MapFeatureType.TeaGarden]: "茶场",
+  [MapFeatureType.TeaFactory]: "茶厂",
+  [MapFeatureType.WaterFacility]: "村里用水",
+  [MapFeatureType.SolarFacility]: "光伏设施",
+  [MapFeatureType.SafetyRisk]: "安全隐患",
+  [MapFeatureType.VillageMemory]: "村庄记忆",
   [MapFeatureType.Issue]: "村庄问题",
   [MapFeatureType.Project]: "建设项目",
+  [MapFeatureType.CommunityAction]: "社区微行动",
+  [MapFeatureType.ResourceOffer]: "可提供资源",
+  [MapFeatureType.ResourceNeed]: "资源需求",
   [MapFeatureType.CompletedAction]: "已完成行动",
   [MapFeatureType.PublicService]: "公共服务设施",
   [MapFeatureType.Ecology]: "生态资源",
   [MapFeatureType.Culture]: "文化资源",
-  [MapFeatureType.ResearchPhoto]: "调研照片",
+  [MapFeatureType.ResearchPhoto]: "村景记录",
   [MapFeatureType.Building]: "建筑",
   [MapFeatureType.Road]: "道路",
   [MapFeatureType.Water]: "水体",
+};
+
+export const communityResourceCategoryLabels: Record<CommunityResourceCategory, string> = {
+  space: "空间",
+  tool: "工具",
+  material: "材料",
+  skill: "技能",
+  knowledge: "地方知识",
+  time: "志愿时间",
 };
 
 export const reviewStatusLabels: Record<ReviewStatus, string> = {

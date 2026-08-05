@@ -1,0 +1,214 @@
+{
+  "title": "红塘村水文与排水系统（演示数据）",
+  "notice": "演示数据：排水走向由村内核心区DSM地形推演，给水分片为示意划分；位置与范围均需实地核对后替换。",
+  "updatedAt": "2026-07-30",
+  "terrainBasis": "村内核心区无人机DSM，东北高（约1646米）、西南低（约1567米），水自东北山箐向西南水田方向汇流，中部低点为中心水塘。",
+  "nodes": [
+    {
+      "id": "water-node-reservoir",
+      "kind": "source",
+      "title": "山箐水库",
+      "longitude": 99.9105,
+      "latitude": 24.6413,
+      "elevation": 1645.8,
+      "location": "村东北山箐",
+      "description": "村庄主水源之一，山箐蓄水，地势为全村最高点附近，可自压供水。",
+      "status": "演示数据"
+    },
+    {
+      "id": "water-node-spring",
+      "kind": "source",
+      "title": "老龙潭山泉",
+      "longitude": 99.9098,
+      "latitude": 24.6409,
+      "elevation": 1641.7,
+      "location": "村北坡地",
+      "description": "常年山泉，与山箐水库互为补充水源。",
+      "status": "演示数据"
+    },
+    {
+      "id": "water-node-pond",
+      "kind": "storage",
+      "title": "中心水塘",
+      "longitude": 99.9053,
+      "latitude": 24.6397,
+      "elevation": 1591.7,
+      "location": "村落中部低洼处",
+      "description": "北沟与东沟汇流点，兼具调蓄、消防与景观功能；地形推演显示村内汇水自然向此汇集。",
+      "status": "演示数据"
+    },
+    {
+      "id": "water-node-supply-north",
+      "kind": "supply",
+      "title": "北片集中供水点",
+      "longitude": 99.9075,
+      "latitude": 24.6399,
+      "elevation": 1630.7,
+      "location": "北片居住区",
+      "description": "服务北片住户，由山箐水库自压供水。",
+      "status": "演示数据"
+    },
+    {
+      "id": "water-node-supply-mid",
+      "kind": "supply",
+      "title": "中片集中供水点",
+      "longitude": 99.9058,
+      "latitude": 24.6372,
+      "elevation": null,
+      "location": "中片居住区",
+      "description": "服务中片住户，水源与供水方式待实地核对。",
+      "status": "演示数据"
+    },
+    {
+      "id": "water-node-supply-south",
+      "kind": "supply",
+      "title": "南片集中供水点",
+      "longitude": 99.9040,
+      "latitude": 24.6355,
+      "elevation": 1588.0,
+      "location": "南片居住区",
+      "description": "服务南片住户，地势较低，需核对是否提水或自压。",
+      "status": "演示数据"
+    },
+    {
+      "id": "water-node-wetland",
+      "kind": "treatment",
+      "title": "污水氧化塘",
+      "longitude": 99.9034,
+      "latitude": 24.6328,
+      "elevation": 1566.6,
+      "location": "村西南出水口",
+      "description": "南出流沟末端污水处理节点，处理后水排向下方水田；对应分布式污水治理设想。",
+      "status": "演示数据"
+    }
+  ],
+  "lines": [
+    {
+      "id": "water-line-north",
+      "kind": "main-drain",
+      "title": "北沟（主排水沟）",
+      "path": [
+        [99.9105, 24.6412],
+        [99.9092, 24.6408],
+        [99.9079, 24.6404],
+        [99.9066, 24.6401],
+        [99.9053, 24.6397]
+      ],
+      "dropMeters": 50.9,
+      "location": "村北坡—村落中部",
+      "description": "自山箐水库方向顺坡而下，汇集北坡与房前屋后排水，汇入中心水塘。",
+      "status": "演示数据"
+    },
+    {
+      "id": "water-line-east",
+      "kind": "main-drain",
+      "title": "东沟",
+      "path": [
+        [99.9115, 24.6380],
+        [99.9100, 24.6382],
+        [99.9085, 24.6386],
+        [99.9060, 24.6399],
+        [99.9053, 24.6397]
+      ],
+      "dropMeters": 50.2,
+      "location": "村东高地—村落中部",
+      "description": "汇集村东高地与茶园边坡来水，向西汇入中心水塘。",
+      "status": "演示数据"
+    },
+    {
+      "id": "water-line-outlet",
+      "kind": "outlet",
+      "title": "南出流沟",
+      "path": [
+        [99.9053, 24.6397],
+        [99.9048, 24.6380],
+        [99.9046, 24.6363],
+        [99.9038, 24.6346],
+        [99.9034, 24.6328],
+        [99.9028, 24.6320]
+      ],
+      "dropMeters": 24.7,
+      "location": "中心水塘—村西南出水口",
+      "description": "中心水塘出流通道，经污水氧化塘处理后出村，流向下方水田。",
+      "status": "演示数据"
+    },
+    {
+      "id": "water-branch-center",
+      "kind": "branch-drain",
+      "title": "村中支沟（房前屋后排水）",
+      "path": [
+        [99.9070, 24.6388],
+        [99.9063, 24.6378],
+        [99.9056, 24.6368],
+        [99.9050, 24.6360]
+      ],
+      "dropMeters": 39.8,
+      "location": "中片居住区",
+      "description": "收集房前屋后雨水与生活排水，向南汇入南出流沟。",
+      "status": "演示数据"
+    },
+    {
+      "id": "water-branch-east",
+      "kind": "branch-drain",
+      "title": "村东支沟",
+      "path": [
+        [99.9095, 24.6395],
+        [99.9088, 24.6385],
+        [99.9074, 24.6371]
+      ],
+      "dropMeters": 10.3,
+      "location": "东片居住区",
+      "description": "收集东片住户排水，下游接入位置待实地核对。",
+      "status": "演示数据"
+    }
+  ],
+  "zones": [
+    {
+      "id": "water-zone-north",
+      "title": "北片供水分区",
+      "kind": "supply-zone",
+      "polygon": [
+        [99.9032, 24.6413],
+        [99.9118, 24.6413],
+        [99.9118, 24.6392],
+        [99.9060, 24.6386],
+        [99.9032, 24.6386]
+      ],
+      "supplyNodeId": "water-node-supply-north",
+      "location": "村落北部",
+      "description": "地势最高，山箐水库与老龙潭山泉自压供水。",
+      "status": "演示数据"
+    },
+    {
+      "id": "water-zone-mid",
+      "title": "中片供水分区",
+      "kind": "supply-zone",
+      "polygon": [
+        [99.9032, 24.6386],
+        [99.9060, 24.6386],
+        [99.9118, 24.6392],
+        [99.9118, 24.6352],
+        [99.9032, 24.6352]
+      ],
+      "supplyNodeId": "water-node-supply-mid",
+      "location": "村落中部",
+      "description": "中心水塘所在片区，供水方式待核对。",
+      "status": "演示数据"
+    },
+    {
+      "id": "water-zone-south",
+      "title": "南片供水分区",
+      "kind": "supply-zone",
+      "polygon": [
+        [99.9032, 24.6352],
+        [99.9118, 24.6352],
+        [99.9118, 24.6320],
+        [99.9032, 24.6320]
+      ],
+      "supplyNodeId": "water-node-supply-south",
+      "location": "村落南部",
+      "description": "地势最低，排水出村方向，供水方式待核对。",
+      "status": "演示数据"
+    }
+  ]
+}

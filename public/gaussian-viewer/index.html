@@ -1,0 +1,952 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>红塘村3D高斯实景 · SparkJS</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: "Microsoft YaHei", "Noto Sans SC", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: #17271f;
+    }
+    body { color: #fffdf7; }
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      touch-action: none;
+      cursor: grab;
+    }
+    canvas:active { cursor: grabbing; }
+    button, input, select { font: inherit; }
+    .point-layer {
+      position: fixed;
+      inset: 0;
+      z-index: 3;
+      overflow: hidden;
+      pointer-events: none;
+    }
+    .point-pin {
+      --point-color: #4f8d55;
+      position: absolute;
+      left: 0;
+      top: 0;
+      display: grid;
+      justify-items: center;
+      min-width: 66px;
+      padding: 0;
+      border: 0;
+      color: #203329;
+      background: transparent;
+      cursor: pointer;
+      pointer-events: auto;
+      transform: translate(-50%, -100%);
+      transform-origin: 50% 100%;
+      filter: drop-shadow(0 3px 5px rgba(0, 0, 0, .32));
+      transition: filter .18s ease, scale .18s ease;
+    }
+    .point-pin:hover,
+    .point-pin:focus-visible,
+    .point-pin.is-selected {
+      z-index: 2;
+      scale: 1.12;
+      outline: none;
+      filter: drop-shadow(0 5px 9px rgba(0, 0, 0, .42));
+    }
+    .point-label {
+      display: block;
+      max-width: 108px;
+      margin-bottom: 4px;
+      padding: 5px 9px;
+      border: 1px solid rgba(35, 54, 44, .18);
+      border-radius: 5px;
+      background: rgba(255, 253, 247, .94);
+      box-shadow: 0 3px 10px rgba(0, 0, 0, .16);
+      font-size: 13px;
+      font-weight: 700;
+      line-height: 1.1;
+      white-space: nowrap;
+    }
+    .is-selected .point-label { background: #f4dfae; }
+    .point-symbol {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: 48px;
+      height: 48px;
+      border: 3px solid #fffdf7;
+      border-radius: 50% 50% 50% 4px;
+      color: #fff;
+      background: var(--point-color);
+      box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .16);
+      font-size: 18px;
+      font-weight: 800;
+      line-height: 1;
+      rotate: -45deg;
+    }
+    .point-symbol > span { rotate: 45deg; }
+    .scene-tools {
+      position: fixed;
+      right: 18px;
+      bottom: 20px;
+      z-index: 7;
+      display: grid;
+      gap: 8px;
+      transition: right .2s ease;
+    }
+    body.detail-open .scene-tools { right: min(408px, 31vw); }
+    .scene-tool {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: 46px;
+      height: 46px;
+      padding: 0;
+      border: 1px solid rgba(255, 255, 255, .22);
+      border-radius: 12px;
+      color: #fff;
+      background: rgba(18, 35, 27, .84);
+      box-shadow: 0 8px 20px rgba(0, 0, 0, .24);
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+    }
+    .scene-tool:hover,
+    .scene-tool:focus-visible,
+    .scene-tool[aria-expanded="true"] {
+      border-color: rgba(255, 255, 255, .52);
+      background: rgba(39, 74, 56, .95);
+      outline: none;
+    }
+    .scene-tool::before {
+      position: absolute;
+      right: calc(100% + 9px);
+      top: 50%;
+      padding: 6px 9px;
+      border-radius: 7px;
+      color: #fff;
+      background: rgba(16, 28, 22, .92);
+      content: attr(data-tooltip);
+      font-size: 12px;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      translate: 4px -50%;
+      transition: opacity .15s ease, translate .15s ease;
+    }
+    .scene-tool:hover::before,
+    .scene-tool:focus-visible::before {
+      opacity: 1;
+      translate: 0 -50%;
+    }
+    .scene-tool svg {
+      width: 21px;
+      height: 21px;
+      fill: none;
+      stroke: currentColor;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      stroke-width: 1.9;
+    }
+    .control-panel {
+      position: fixed;
+      right: 76px;
+      bottom: 20px;
+      z-index: 8;
+      width: min(300px, calc(100vw - 104px));
+      padding: 15px;
+      border: 1px solid rgba(255, 255, 255, .2);
+      border-radius: 14px;
+      color: #f7fbf7;
+      background: rgba(15, 30, 23, .91);
+      box-shadow: 0 14px 36px rgba(0, 0, 0, .3);
+      backdrop-filter: blur(12px);
+    }
+    body.detail-open .control-panel { right: min(466px, calc(31vw + 58px)); }
+    .control-panel[hidden] { display: none; }
+    .control-setting + .control-setting {
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(255, 255, 255, .13);
+    }
+    .control-panel-heading,
+    .control-range-labels {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .control-panel-heading {
+      margin-bottom: 9px;
+      font-size: 13px;
+    }
+    .control-panel output {
+      padding: 4px 8px;
+      border-radius: 999px;
+      color: #173023;
+      background: #edf5ec;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .control-panel input,
+    .control-panel select { width: 100%; }
+    .control-panel input { accent-color: #9bc29b; }
+    .control-panel select {
+      height: 38px;
+      padding: 0 10px;
+      border: 1px solid rgba(255, 255, 255, .22);
+      border-radius: 8px;
+      color: #fff;
+      background: #253a30;
+    }
+    .control-range-labels {
+      margin-top: 5px;
+      color: rgba(255, 255, 255, .68);
+      font-size: 10px;
+    }
+    .control-panel > p {
+      margin: 13px 0 0;
+      color: rgba(255, 255, 255, .76);
+      font-size: 11px;
+      line-height: 1.55;
+    }
+    .viewer-status {
+      position: fixed;
+      left: 18px;
+      bottom: 18px;
+      z-index: 5;
+      display: grid;
+      max-width: min(500px, calc(100vw - 120px));
+      padding: 10px 13px;
+      border: 1px solid rgba(255, 255, 255, .18);
+      border-radius: 10px;
+      color: rgba(255, 255, 255, .82);
+      background: rgba(12, 25, 19, .76);
+      box-shadow: 0 9px 24px rgba(0, 0, 0, .22);
+      backdrop-filter: blur(8px);
+      font-size: 11px;
+      line-height: 1.5;
+      transition: opacity .25s ease;
+    }
+    .viewer-status strong {
+      color: #fff;
+      font-size: 13px;
+    }
+    html[data-spark-ready="true"] .viewer-status { opacity: .78; }
+    @media (max-width: 720px) {
+      .scene-tools { right: 12px; bottom: 12px; }
+      body.detail-open .scene-tools { right: 12px; bottom: min(58vh, 430px); }
+      .control-panel,
+      body.detail-open .control-panel {
+        right: 68px;
+        bottom: 12px;
+        width: min(270px, calc(100vw - 86px));
+      }
+      .viewer-status { left: 10px; bottom: 10px; max-width: calc(100vw - 82px); }
+      body.detail-open .viewer-status { display: none; }
+      .point-label { font-size: 11px; }
+      .point-symbol { width: 42px; height: 42px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before { transition-duration: .01ms !important; }
+    }
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "/gaussian-viewer/vendor/three/three.module.js",
+        "three/addons/": "/gaussian-viewer/vendor/three/addons/",
+        "@sparkjsdev/spark": "/gaussian-viewer/vendor/spark/spark.module.js"
+      }
+    }
+  </script>
+</head>
+<body>
+  <div id="sceneHost"></div>
+  <div class="point-layer" id="pointLayer" aria-label="红塘村三维地点"></div>
+
+  <div class="scene-tools" aria-label="三维场景工具">
+    <button class="scene-tool" id="focusModel" type="button" aria-label="回到中心" data-tooltip="回到中心">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="12" cy="12" r="3"></circle>
+        <path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path>
+        <circle cx="12" cy="12" r="8"></circle>
+      </svg>
+    </button>
+    <button class="scene-tool" id="settingsModel" type="button" aria-label="操作设置" aria-expanded="false" data-tooltip="操作设置">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4Z"></path>
+        <path d="m19.4 15 .1.1a2 2 0 0 1-2.8 2.8l-.1-.1-1.1.5v.2a2 2 0 0 1-4 0v-.2l-1.1-.5-.1.1a2 2 0 0 1-2.8-2.8l.1-.1-.5-1.1H7a2 2 0 0 1 0-4h.2l.5-1.1-.1-.1a2 2 0 0 1 2.8-2.8l.1.1 1.1-.5V5a2 2 0 0 1 4 0v.2l1.1.5.1-.1a2 2 0 0 1 2.8 2.8l-.1.1.5 1.1h.2a2 2 0 0 1 0 4H20l-.6 1.4Z"></path>
+      </svg>
+    </button>
+    <button class="scene-tool" id="fullscreenModel" type="button" aria-label="全屏查看" data-tooltip="全屏查看">
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"></path>
+      </svg>
+    </button>
+  </div>
+
+  <section class="control-panel" id="cameraControlPanel" aria-label="3D操作设置" hidden>
+    <div class="control-setting">
+      <div class="control-panel-heading">
+        <strong>左键平移灵敏度</strong>
+        <output id="panSensitivityOutput" for="panSensitivityRange">适中</output>
+      </div>
+      <input id="panSensitivityRange" type="range" min="1" max="5" step="1" value="3" aria-label="左键平移灵敏度" />
+      <div class="control-range-labels"><span>更稳</span><span>更灵敏</span></div>
+    </div>
+    <div class="control-setting">
+      <div class="control-panel-heading">
+        <strong>滚轮缩放灵敏度</strong>
+        <output id="zoomSensitivityOutput" for="zoomSensitivityRange">适中 · 15%</output>
+      </div>
+      <input id="zoomSensitivityRange" type="range" min="1" max="5" step="1" value="3" aria-label="滚轮缩放灵敏度" />
+      <div class="control-range-labels"><span>每步6%</span><span>每步32%</span></div>
+    </div>
+    <div class="control-setting">
+      <div class="control-panel-heading">
+        <strong>画面质量</strong>
+        <output id="renderQualityOutput" for="renderQualitySelect">均衡</output>
+      </div>
+      <select id="renderQualitySelect" aria-label="三维画面质量">
+        <option value="saving">省电</option>
+        <option value="balanced" selected>均衡</option>
+        <option value="quality">清晰</option>
+      </select>
+      <div class="control-range-labels"><span>更流畅</span><span>更多细节</span></div>
+    </div>
+    <p>模型采用 SparkJS 流式分块，视角附近的细节会按需载入。三项设置会自动保存；停止操作后画面会暂停连续绘制。</p>
+  </section>
+
+  <div class="viewer-status" id="viewerStatus">
+    <strong id="statusTitle">正在载入红塘村轻量化实景</strong>
+    <span id="statusText">先读取约54KB索引，再按当前视角加载模型分块。</span>
+  </div>
+
+  <script type="module">
+    import * as THREE from "three";
+    import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+    import { SparkRenderer, SplatMesh, isMobile } from "@sparkjsdev/spark";
+
+    const MODEL_URL = "/api/gaussian-model/hongtang-recovered-sh0-lod.rad";
+    const MODEL_SCALE_METERS = 620;
+    const HOME_CAMERA = new THREE.Vector3(10, 440, 860);
+    const HOME_TARGET = new THREE.Vector3(0, 0, 0);
+    const WHEEL_LOCK_MS = 120;
+    const ALLOWED_POINT_IDS = new Set(["map-13", "map-14", "map-15", "map-16", "map-17"]);
+    const POINT_HEIGHTS = {
+      "map-13": 13,
+      "map-14": 20,
+      "map-15": 17,
+      "map-16": 10,
+      "map-17": 8,
+    };
+    const PAN_PROFILES = {
+      1: { label: "很稳", multiplier: 0.5 },
+      2: { label: "较稳", multiplier: 0.72 },
+      3: { label: "适中", multiplier: 1 },
+      4: { label: "较灵敏", multiplier: 1.28 },
+      5: { label: "灵敏", multiplier: 1.6 },
+    };
+    const ZOOM_PROFILES = {
+      1: { label: "很稳", ratio: 0.06 },
+      2: { label: "较稳", ratio: 0.1 },
+      3: { label: "适中", ratio: 0.15 },
+      4: { label: "较灵敏", ratio: 0.22 },
+      5: { label: "灵敏", ratio: 0.32 },
+    };
+    const QUALITY_PROFILES = {
+      saving: {
+        label: "省电",
+        lodSplatCount: 180000,
+        mobileLodSplatCount: 120000,
+        pixelRatio: 0.55,
+        maxFps: 24,
+        maxStdDev: Math.sqrt(4.5),
+        maxPixelRadius: 192,
+        minSortIntervalMs: 80,
+      },
+      balanced: {
+        label: "均衡",
+        lodSplatCount: 350000,
+        mobileLodSplatCount: 220000,
+        pixelRatio: 0.72,
+        maxFps: 30,
+        maxStdDev: Math.sqrt(6),
+        maxPixelRadius: 256,
+        minSortIntervalMs: 50,
+      },
+      quality: {
+        label: "清晰",
+        lodSplatCount: 650000,
+        mobileLodSplatCount: 400000,
+        pixelRatio: 0.95,
+        maxFps: 40,
+        maxStdDev: Math.sqrt(8),
+        maxPixelRadius: 384,
+        minSortIntervalMs: 30,
+      },
+    };
+
+    const sceneHost = document.getElementById("sceneHost");
+    const pointLayer = document.getElementById("pointLayer");
+    const statusTitle = document.getElementById("statusTitle");
+    const statusText = document.getElementById("statusText");
+    const focusButton = document.getElementById("focusModel");
+    const settingsButton = document.getElementById("settingsModel");
+    const fullscreenButton = document.getElementById("fullscreenModel");
+    const controlPanel = document.getElementById("cameraControlPanel");
+    const panRange = document.getElementById("panSensitivityRange");
+    const panOutput = document.getElementById("panSensitivityOutput");
+    const zoomRange = document.getElementById("zoomSensitivityRange");
+    const zoomOutput = document.getElementById("zoomSensitivityOutput");
+    const qualitySelect = document.getElementById("renderQualitySelect");
+    const qualityOutput = document.getElementById("renderQualityOutput");
+
+    let renderer;
+    let spark;
+    let splats;
+    let controls;
+    let readySent = false;
+    let loadFailed = false;
+    let failureDetail = "";
+    let panSensitivity = 3;
+    let zoomSensitivity = 3;
+    let renderQuality = "balanced";
+    let selectedPointId = "";
+    let focusCount = 0;
+    let lastWheelAt = 0;
+    let frameHandle = 0;
+    let renderUntil = 0;
+    let lastRenderAt = Number.NEGATIVE_INFINITY;
+    let renderFrameCount = 0;
+    let pointPayloads = [];
+    const pointElements = new Map();
+    const pointPositions = new Map();
+
+    document.documentElement.dataset.viewerEngine = "sparkjs";
+    document.documentElement.dataset.sparkVersion = "2.1.0";
+    document.documentElement.dataset.modelFormat = "rad-chunked";
+    document.documentElement.dataset.modelUrl = MODEL_URL;
+    document.documentElement.dataset.requestRenderMode = "on-demand";
+    document.documentElement.dataset.terrainMode = "not-used-by-spark";
+    document.documentElement.dataset.renderIdle = "true";
+    document.documentElement.dataset.renderFrameCount = "0";
+
+    function tellParent(type, detail) {
+      window.parent.postMessage({ type, detail }, window.location.origin);
+    }
+
+    function clampSensitivity(value) {
+      const number = Number(value);
+      return Number.isInteger(number) && number >= 1 && number <= 5 ? number : 3;
+    }
+
+    function restoreSettings() {
+      try {
+        panSensitivity = clampSensitivity(localStorage.getItem("hongtang-3d-pan-sensitivity"));
+        zoomSensitivity = clampSensitivity(localStorage.getItem("hongtang-3d-zoom-sensitivity"));
+        const storedQuality = localStorage.getItem("hongtang-3d-render-quality");
+        if (storedQuality && Object.hasOwn(QUALITY_PROFILES, storedQuality)) {
+          renderQuality = storedQuality;
+        }
+      } catch {
+        // Restricted browsing modes may not expose local storage.
+      }
+    }
+
+    function applyPanSensitivity(value) {
+      panSensitivity = clampSensitivity(value);
+      const profile = PAN_PROFILES[panSensitivity];
+      panRange.value = String(panSensitivity);
+      panOutput.textContent = profile.label;
+      document.documentElement.dataset.panSensitivity = String(panSensitivity);
+      if (controls) controls.panSpeed = 0.75 * profile.multiplier;
+      try { localStorage.setItem("hongtang-3d-pan-sensitivity", String(panSensitivity)); } catch {}
+    }
+
+    function applyZoomSensitivity(value) {
+      zoomSensitivity = clampSensitivity(value);
+      const profile = ZOOM_PROFILES[zoomSensitivity];
+      zoomRange.value = String(zoomSensitivity);
+      zoomOutput.textContent = `${profile.label} · ${Math.round(profile.ratio * 100)}%`;
+      document.documentElement.dataset.zoomSensitivity = String(zoomSensitivity);
+      document.documentElement.dataset.wheelZoomRatio = String(profile.ratio);
+      try { localStorage.setItem("hongtang-3d-zoom-sensitivity", String(zoomSensitivity)); } catch {}
+    }
+
+    function devicePixelRatioFor(profile) {
+      const mobileFactor = isMobile() ? 0.82 : 1;
+      return Math.min(window.devicePixelRatio || 1, profile.pixelRatio * mobileFactor);
+    }
+
+    function lodSplatCountFor(profile) {
+      return isMobile() ? profile.mobileLodSplatCount : profile.lodSplatCount;
+    }
+
+    function applyRenderQuality(value) {
+      renderQuality = Object.hasOwn(QUALITY_PROFILES, value) ? value : "balanced";
+      const profile = QUALITY_PROFILES[renderQuality];
+      const lodSplatCount = lodSplatCountFor(profile);
+      qualitySelect.value = renderQuality;
+      qualityOutput.textContent = profile.label;
+      document.documentElement.dataset.renderQuality = renderQuality;
+      document.documentElement.dataset.lodSplatCount = String(lodSplatCount);
+      document.documentElement.dataset.renderPixelRatio = String(devicePixelRatioFor(profile));
+      document.documentElement.dataset.renderFpsCap = String(profile.maxFps);
+      if (spark) {
+        spark.lodSplatCount = lodSplatCount;
+        spark.lodSplatScale = 1;
+        spark.maxStdDev = profile.maxStdDev;
+        spark.maxPixelRadius = profile.maxPixelRadius;
+        spark.minSortIntervalMs = profile.minSortIntervalMs;
+        spark.setDirty();
+      }
+      if (renderer) {
+        renderer.setPixelRatio(devicePixelRatioFor(profile));
+        renderer.setSize(innerWidth, innerHeight, false);
+      }
+      scheduleRender(250);
+      try { localStorage.setItem("hongtang-3d-render-quality", renderQuality); } catch {}
+    }
+
+    function pointPosition(point) {
+      return new THREE.Vector3(
+        point.eastRatio * MODEL_SCALE_METERS,
+        POINT_HEIGHTS[point.id] ?? 12,
+        -point.northRatio * MODEL_SCALE_METERS,
+      );
+    }
+
+    function isValidPoint(point) {
+      return Boolean(
+        point
+        && ALLOWED_POINT_IDS.has(point.id)
+        && typeof point.categoryLabel === "string"
+        && point.categoryLabel.length > 0
+        && typeof point.shortLabel === "string"
+        && point.shortLabel.length > 0
+        && /^#[0-9a-f]{6}$/i.test(point.color)
+        && Number.isFinite(point.eastRatio)
+        && Math.abs(point.eastRatio) <= 1
+        && Number.isFinite(point.northRatio)
+        && Math.abs(point.northRatio) <= 1
+      );
+    }
+
+    function syncPoints(points) {
+      const uniqueIds = new Set(Array.isArray(points) ? points.map((point) => point?.id) : []);
+      if (!Array.isArray(points) || points.length !== 5 || uniqueIds.size !== 5 || points.some((point) => !isValidPoint(point))) {
+        tellParent("hongtang-gaussian-points-error", "三维地点数据格式不正确");
+        return;
+      }
+
+      pointPayloads = points.map((point) => ({ ...point }));
+      const activeIds = new Set(pointPayloads.map((point) => point.id));
+      for (const point of pointPayloads) {
+        pointPositions.set(point.id, pointPosition(point));
+        let element = pointElements.get(point.id);
+        if (!element) {
+          element = document.createElement("button");
+          element.type = "button";
+          element.className = "point-pin";
+          element.dataset.pointId = point.id;
+          element.setAttribute("aria-label", `查看${point.categoryLabel}`);
+          element.addEventListener("click", () => selectPoint(point.id));
+          pointLayer.appendChild(element);
+          pointElements.set(point.id, element);
+        }
+        element.style.setProperty("--point-color", point.color);
+        const label = document.createElement("span");
+        label.className = "point-label";
+        label.textContent = point.categoryLabel;
+        const symbol = document.createElement("span");
+        symbol.className = "point-symbol";
+        const symbolText = document.createElement("span");
+        symbolText.textContent = point.shortLabel.slice(0, 1);
+        symbol.appendChild(symbolText);
+        element.replaceChildren(label, symbol);
+      }
+      for (const [id, element] of pointElements.entries()) {
+        if (activeIds.has(id)) continue;
+        element.remove();
+        pointElements.delete(id);
+        pointPositions.delete(id);
+      }
+
+      document.documentElement.dataset.gaussianPointCount = String(pointElements.size);
+      document.documentElement.dataset.gaussianFocusCount = String(focusCount);
+      document.documentElement.dataset.gaussianPointManifest = JSON.stringify(
+        pointPayloads.map(({ id, shortLabel, color }) => ({ id, shortLabel, color })),
+      );
+      document.documentElement.dataset.gaussianPointPlacementManifest = JSON.stringify(
+        pointPayloads.map((point) => {
+          const position = pointPositions.get(point.id);
+          return {
+            id: point.id,
+            source: "spark-local-demo",
+            x: Number(position.x.toFixed(2)),
+            y: Number(position.y.toFixed(2)),
+            z: Number(position.z.toFixed(2)),
+          };
+        }),
+      );
+      updatePointScreenPositions();
+      tellParent("hongtang-gaussian-points-ready", pointElements.size);
+      scheduleRender(500);
+    }
+
+    function updatePointScreenPositions() {
+      if (!renderer || !camera) return;
+      const screenPositions = {};
+      let visibleCount = 0;
+      const width = renderer.domElement.clientWidth;
+      const height = renderer.domElement.clientHeight;
+      for (const [id, position] of pointPositions.entries()) {
+        const projected = position.clone().project(camera);
+        const x = (projected.x * 0.5 + 0.5) * width;
+        const y = (-projected.y * 0.5 + 0.5) * height;
+        const visible = projected.z > -1 && projected.z < 1 && x >= -70 && x <= width + 70 && y >= -90 && y <= height + 20;
+        const element = pointElements.get(id);
+        if (element) {
+          element.hidden = !visible;
+          element.style.left = `${x}px`;
+          element.style.top = `${y}px`;
+        }
+        if (visible) visibleCount += 1;
+        screenPositions[id] = { x: Math.round(x), y: Math.round(y), visible };
+      }
+      document.documentElement.dataset.gaussianPointScreenPositions = JSON.stringify(screenPositions);
+      document.documentElement.dataset.gaussianPointVisibleCount = String(visibleCount);
+    }
+
+    function updateCameraMetadata() {
+      if (!camera || !controls) return;
+      const signature = [
+        ...camera.position.toArray(),
+        ...camera.quaternion.toArray(),
+        ...controls.target.toArray(),
+      ];
+      document.documentElement.dataset.gaussianCameraSignature = signature.map((value) => value.toFixed(4)).join(",");
+      document.documentElement.dataset.gaussianCameraPositionSignature = camera.position
+        .toArray()
+        .map((value) => value.toFixed(4))
+        .join(",");
+    }
+
+    function selectPoint(id) {
+      if (!pointElements.has(id)) return;
+      selectedPointId = id;
+      for (const [pointId, element] of pointElements.entries()) {
+        element.classList.toggle("is-selected", pointId === id);
+      }
+      document.documentElement.dataset.selectedGaussianPoint = id;
+      document.documentElement.dataset.detailOpen = "true";
+      document.body.classList.add("detail-open");
+      controlPanel.hidden = true;
+      settingsButton.setAttribute("aria-expanded", "false");
+      tellParent("hongtang-gaussian-point-selected", id);
+      scheduleRender(250);
+    }
+
+    function clearSelectedPoint() {
+      selectedPointId = "";
+      for (const element of pointElements.values()) element.classList.remove("is-selected");
+      document.documentElement.dataset.selectedGaussianPoint = "";
+      document.documentElement.dataset.detailOpen = "false";
+      document.body.classList.remove("detail-open");
+      scheduleRender(250);
+    }
+
+    function animateCamera(targetPosition, targetLookAt, duration = 1100) {
+      if (!camera || !controls) return;
+      const startAt = performance.now();
+      const startPosition = camera.position.clone();
+      const startTarget = controls.target.clone();
+      function step(now) {
+        const progress = Math.min(1, (now - startAt) / duration);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        camera.position.lerpVectors(startPosition, targetPosition, eased);
+        controls.target.lerpVectors(startTarget, targetLookAt, eased);
+        controls.update();
+        renderer.render(scene, camera);
+        updatePointScreenPositions();
+        updateCameraMetadata();
+        if (progress < 1) requestAnimationFrame(step);
+        else scheduleRender(700);
+      }
+      requestAnimationFrame(step);
+    }
+
+    function focusPoint(id) {
+      const position = pointPositions.get(id);
+      if (!position) {
+        tellParent("hongtang-gaussian-points-error", "没有找到可定位的三维地点");
+        return;
+      }
+      const direction = camera.position.clone().sub(controls.target).normalize();
+      const targetCamera = position.clone().add(direction.multiplyScalar(230)).add(new THREE.Vector3(0, 65, 0));
+      animateCamera(targetCamera, position, 1200);
+      focusCount += 1;
+      document.documentElement.dataset.gaussianFocusCount = String(focusCount);
+    }
+
+    function requestNextFrame() {
+      if (!frameHandle && !document.hidden) {
+        frameHandle = requestAnimationFrame(renderFrame);
+      }
+    }
+
+    function scheduleRender(duration = 0) {
+      renderUntil = Math.max(renderUntil, performance.now() + duration);
+      document.documentElement.dataset.renderIdle = "false";
+      requestNextFrame();
+    }
+
+    function renderFrame(now) {
+      frameHandle = 0;
+      const profile = QUALITY_PROFILES[renderQuality];
+      const minimumFrameInterval = 1000 / profile.maxFps;
+      if (now - lastRenderAt < minimumFrameInterval) {
+        requestNextFrame();
+        return;
+      }
+      const controlsChanged = controls?.update() === true;
+      if (renderer && camera) {
+        renderer.render(scene, camera);
+        updatePointScreenPositions();
+        updateCameraMetadata();
+        lastRenderAt = now;
+        renderFrameCount += 1;
+        document.documentElement.dataset.renderFrameCount = String(renderFrameCount);
+        if (spark) {
+          document.documentElement.dataset.activeSplats = String(spark.activeSplats ?? 0);
+        }
+      }
+      if (controlsChanged || now < renderUntil) {
+        requestNextFrame();
+      } else if (!frameHandle) {
+        document.documentElement.dataset.renderIdle = "true";
+      }
+    }
+
+    function handleWheel(event) {
+      event.preventDefault();
+      const now = performance.now();
+      if (now - lastWheelAt < WHEEL_LOCK_MS || !controls) return;
+      lastWheelAt = now;
+      const ratio = ZOOM_PROFILES[zoomSensitivity].ratio;
+      const offset = camera.position.clone().sub(controls.target);
+      const distance = offset.length();
+      const nextDistance = THREE.MathUtils.clamp(
+        event.deltaY > 0 ? distance * (1 + ratio) : distance * (1 - ratio),
+        controls.minDistance,
+        controls.maxDistance,
+      );
+      camera.position.copy(controls.target).add(offset.setLength(nextDistance));
+      controls.update();
+      document.documentElement.dataset.wheelZoomDirection = event.deltaY > 0 ? "out" : "in";
+      document.documentElement.dataset.wheelZoomDistance = nextDistance.toFixed(2);
+      renderer.domElement.dataset.wheelSteps = String(
+        Number(renderer.domElement.dataset.wheelSteps ?? "0") + 1,
+      );
+      scheduleRender(250);
+    }
+
+    function markReady() {
+      if (readySent) return;
+      readySent = true;
+      document.documentElement.dataset.sparkReady = "true";
+      statusTitle.textContent = "SparkJS轻量化实景已加载";
+      statusText.textContent = "模型会随视角按需补充细节；左键平移、右键旋转、滚轮缩放。";
+      tellParent("hongtang-gaussian-ready");
+      scheduleRender(300);
+    }
+
+    restoreSettings();
+    applyPanSensitivity(panSensitivity);
+    applyZoomSensitivity(zoomSensitivity);
+    applyRenderQuality(renderQuality);
+
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color("#193027");
+    const camera = new THREE.PerspectiveCamera(48, innerWidth / innerHeight, 0.1, 4000);
+    camera.up.set(0, 1, 0);
+    camera.position.copy(HOME_CAMERA);
+
+    try {
+      renderer = new THREE.WebGLRenderer({
+        antialias: false,
+        alpha: false,
+        powerPreference: "low-power",
+      });
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      renderer.setSize(innerWidth, innerHeight, false);
+      renderer.domElement.dataset.fixedWheelZoom = "true";
+      renderer.domElement.dataset.horizontalLeftPan = "true";
+      renderer.domElement.dataset.rightOrbit = "true";
+      renderer.domElement.dataset.rightOrbitPivot = "screen-center";
+      renderer.domElement.dataset.middleDragDisabled = "true";
+      renderer.domElement.dataset.wheelSteps = "0";
+      sceneHost.appendChild(renderer.domElement);
+
+      const quality = QUALITY_PROFILES[renderQuality];
+      renderer.setPixelRatio(devicePixelRatioFor(quality));
+      spark = new SparkRenderer({
+        renderer,
+        onDirty: () => scheduleRender(),
+        pagedExtSplats: true,
+        maxPagedSplats: (isMobile() ? 12 : 24) * 65536,
+        lodSplatCount: lodSplatCountFor(quality),
+        lodSplatScale: 1,
+        maxStdDev: quality.maxStdDev,
+        maxPixelRadius: quality.maxPixelRadius,
+        minSortIntervalMs: quality.minSortIntervalMs,
+        behindFoveate: 0.15,
+        coneFov0: 70,
+        coneFov: 150,
+        coneFoveate: 0.35,
+      });
+      scene.add(spark);
+
+      const modelCenter = new THREE.Vector3(-121.9575, 86.009, -110.5815);
+      const sourceToThree = new THREE.Quaternion().setFromAxisAngle(
+        new THREE.Vector3(1, 0, 0),
+        -Math.PI / 2,
+      );
+      const centeredPosition = modelCenter.clone().applyQuaternion(sourceToThree).multiplyScalar(-1);
+
+      splats = new SplatMesh({
+        url: MODEL_URL,
+        paged: true,
+        lodScale: 1,
+        onProgress(event) {
+          if (event.lengthComputable && event.total > 0) {
+            statusText.textContent = `正在流式载入当前视角：${Math.round(event.loaded / event.total * 100)}%`;
+          }
+          scheduleRender();
+        },
+        onLoad: markReady,
+      });
+      splats.quaternion.copy(sourceToThree);
+      splats.position.copy(centeredPosition);
+      scene.add(splats);
+
+      controls = new OrbitControls(camera, renderer.domElement);
+      controls.target.copy(HOME_TARGET);
+      controls.enableDamping = true;
+      controls.dampingFactor = 0.08;
+      controls.enableZoom = false;
+      controls.screenSpacePanning = false;
+      controls.rotateSpeed = 0.45;
+      controls.minDistance = 40;
+      controls.maxDistance = 1800;
+      controls.minPolarAngle = THREE.MathUtils.degToRad(3);
+      controls.maxPolarAngle = THREE.MathUtils.degToRad(88);
+      controls.mouseButtons.LEFT = THREE.MOUSE.PAN;
+      controls.mouseButtons.MIDDLE = null;
+      controls.mouseButtons.RIGHT = THREE.MOUSE.ROTATE;
+      applyPanSensitivity(panSensitivity);
+      controls.update();
+      controls.addEventListener("start", () => scheduleRender(120));
+      controls.addEventListener("change", () => scheduleRender(80));
+      controls.addEventListener("end", () => scheduleRender(250));
+
+      renderer.domElement.addEventListener("wheel", handleWheel, { passive: false });
+      renderer.domElement.addEventListener("contextmenu", (event) => event.preventDefault());
+      splats.initialized.catch((error) => {
+        throw error;
+      }).catch((error) => {
+        loadFailed = true;
+        failureDetail = String(error?.message || error);
+        document.documentElement.dataset.sparkError = failureDetail;
+        statusTitle.textContent = "轻量化模型加载失败";
+        statusText.textContent = `${failureDetail}。请检查模型文件目录。`;
+        tellParent("hongtang-gaussian-error", failureDetail);
+      });
+      applyRenderQuality(renderQuality);
+      scheduleRender(300);
+    } catch (error) {
+      loadFailed = true;
+      failureDetail = String(error?.message || error);
+      document.documentElement.dataset.sparkError = failureDetail;
+      statusTitle.textContent = "浏览器无法启动SparkJS";
+      statusText.textContent = failureDetail;
+      tellParent("hongtang-gaussian-error", failureDetail);
+    }
+
+    window.addEventListener("message", (event) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data?.type === "hongtang-gaussian-status-request") {
+        if (readySent) tellParent("hongtang-gaussian-ready");
+        if (loadFailed) tellParent("hongtang-gaussian-error", failureDetail);
+        return;
+      }
+      if (event.data?.type === "hongtang-gaussian-points-set") {
+        syncPoints(event.data.points);
+        return;
+      }
+      if (event.data?.type === "hongtang-gaussian-point-focus") {
+        focusPoint(event.data.id);
+        return;
+      }
+      if (event.data?.type === "hongtang-gaussian-point-clear") {
+        clearSelectedPoint();
+        return;
+      }
+      if (event.data?.type === "hongtang-gaussian-detail-state") {
+        const open = event.data.open === true;
+        document.body.classList.toggle("detail-open", open);
+        document.documentElement.dataset.detailOpen = String(open);
+        if (open) {
+          controlPanel.hidden = true;
+          settingsButton.setAttribute("aria-expanded", "false");
+        }
+        scheduleRender();
+      }
+    });
+
+    focusButton.addEventListener("click", () => animateCamera(HOME_CAMERA, HOME_TARGET, 1100));
+    settingsButton.addEventListener("click", () => {
+      const nextOpen = controlPanel.hidden;
+      controlPanel.hidden = !nextOpen;
+      settingsButton.setAttribute("aria-expanded", String(nextOpen));
+    });
+    fullscreenButton.addEventListener("click", async () => {
+      try {
+        if (document.fullscreenElement) await document.exitFullscreen();
+        else await document.documentElement.requestFullscreen();
+      } catch {
+        tellParent("hongtang-gaussian-points-error", "当前浏览器未允许全屏显示");
+      }
+    });
+    panRange.addEventListener("input", (event) => applyPanSensitivity(event.target.value));
+    zoomRange.addEventListener("input", (event) => applyZoomSensitivity(event.target.value));
+    qualitySelect.addEventListener("change", (event) => applyRenderQuality(event.target.value));
+    window.addEventListener("resize", () => {
+      if (!renderer) return;
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+      applyRenderQuality(renderQuality);
+      scheduleRender(120);
+    });
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) {
+        if (frameHandle) cancelAnimationFrame(frameHandle);
+        frameHandle = 0;
+        renderUntil = 0;
+        document.documentElement.dataset.renderIdle = "true";
+      } else {
+        scheduleRender(200);
+      }
+    });
+  </script>
+</body>
+</html>

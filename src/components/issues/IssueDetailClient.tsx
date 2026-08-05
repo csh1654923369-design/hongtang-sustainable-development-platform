@@ -23,7 +23,7 @@ export function IssueDetailClient({ id }: { id: string }) {
   const [comment, setComment] = useState("");
   const goal = issue ? contentService.getGoal(issue.goalId) : undefined;
 
-  if (!issue) return <div className="page-container not-found-card"><AlertCircle size={40} /><h1>没有找到这个问题</h1><p>它可能只存在于另一个演示会话中，或链接不完整。</p><Link href="/map" className="button button-primary">返回行动地图</Link></div>;
+  if (!issue) return <div className="page-container not-found-card"><AlertCircle size={40} /><h1>没有找到这个问题</h1><p>它可能只存在于另一个演示会话中，或链接不完整。</p><Link href="/" className="button button-primary">返回首页</Link></div>;
 
   const submitRating = (event: FormEvent) => {
     event.preventDefault();
@@ -34,7 +34,7 @@ export function IssueDetailClient({ id }: { id: string }) {
 
   return (
     <main className="issue-detail-page">
-      <div className="page-container detail-back"><Link href="/map"><ArrowLeft size={17} />返回行动地图</Link></div>
+      <div className="page-container detail-back"><Link href="/"><ArrowLeft size={17} />返回首页</Link></div>
       <section className="issue-detail-hero page-container">
         <div><div className="inline-badges"><DemoDataBadge /><span className="issue-code">{issue.code}</span><StatusBadge status={issue.status} /></div><h1>{issue.title}</h1><p>{issue.description}</p><div className="issue-hero-facts"><span><MapPin size={17} />{issue.location}</span><span><CalendarDays size={17} />提交于 {issue.submittedAt}</span><span><UserRound size={17} />{issue.publicName ? "村民公开提交" : "村民匿名公开"}</span></div></div>
         <aside className="issue-status-card"><span>当前办理状态</span><strong>{issueStatusLabels[issue.status]}</strong><p>最近更新：{issue.updatedAt}</p><div className="progress-track"><span style={{ width: `${Math.min(100, (issue.history.length / 6) * 100)}%` }} /></div><small>流程进度根据演示时间线估算</small></aside>

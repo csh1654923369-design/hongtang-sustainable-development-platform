@@ -2,8 +2,6 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { DemoProvider } from "@/components/providers/DemoProvider";
 import { Header } from "@/components/layout/Header";
-import { Footer } from "@/components/layout/Footer";
-import { MobileBottomNavigation } from "@/components/layout/MobileBottomNavigation";
 
 export const metadata: Metadata = {
   title: "红塘村可持续发展平台",
@@ -21,8 +19,6 @@ export default function RootLayout({
         <DemoProvider>
           <Header />
           <div className="site-content">{children}</div>
-          <Footer />
-          <MobileBottomNavigation />
         </DemoProvider>
       </body>
     </html>

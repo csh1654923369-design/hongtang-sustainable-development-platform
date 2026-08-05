@@ -1,0 +1,311 @@
+{
+  "meta": {
+    "title": "红塘村专题调研示例记录",
+    "updatedAt": "2026-08-01",
+    "notice": "所有记录均为界面演示数据，不代表红塘村实际调查结论；后续应由现场资料替换。"
+  },
+  "records": [
+    {
+      "id": "demo-garden-1",
+      "moduleId": "garden",
+      "recordTitle": "兰园夏季植物记录",
+      "surveyDate": "2026-07-18",
+      "observer": "调研小组（示例）",
+      "siteId": "real-poi-49",
+      "siteName": "兰园(孙宗华)",
+      "longitude": 99.90984312995009,
+      "latitude": 24.637371328271648,
+      "values": {
+        "areaSqm": "86",
+        "plantSpecies": "栀子、三角梅、茶花、薄荷",
+        "waterSource": "山泉水",
+        "maintenance": "良好",
+        "seasonalChange": "栀子花期结束，三角梅仍在开花。"
+      },
+      "displayFields": [
+        {
+          "key": "areaSqm",
+          "label": "花园面积",
+          "value": "86",
+          "unit": "平方米"
+        },
+        {
+          "key": "plantSpecies",
+          "label": "植物种类",
+          "value": "栀子、三角梅、茶花、薄荷"
+        },
+        {
+          "key": "waterSource",
+          "label": "浇灌水源",
+          "value": "山泉水"
+        },
+        {
+          "key": "maintenance",
+          "label": "管护情况",
+          "value": "良好"
+        },
+        {
+          "key": "seasonalChange",
+          "label": "季节变化",
+          "value": "栀子花期结束，三角梅仍在开花。"
+        }
+      ],
+      "notes": "数值和描述均为界面演示，不代表实际调查结论。",
+      "reviewStatus": "unverified",
+      "createdAt": "2026-07-18T09:20:00.000Z",
+      "updatedAt": "2026-07-18T09:20:00.000Z",
+      "isDemo": true
+    },
+    {
+      "id": "demo-garden-2",
+      "moduleId": "garden",
+      "recordTitle": "古井边的花园管护记录",
+      "surveyDate": "2026-07-23",
+      "observer": "示例记录人",
+      "siteId": "real-poi-1",
+      "siteName": "古井边的花园(张国凤)",
+      "longitude": 99.90972129256993,
+      "latitude": 24.638222829802377,
+      "values": {
+        "areaSqm": "32",
+        "plantSpecies": "月季、韭菜、辣椒",
+        "waterSource": "雨水收集",
+        "maintenance": "需要整理",
+        "seasonalChange": "夏季杂草增多，需要补充遮荫。"
+      },
+      "displayFields": [
+        {
+          "key": "areaSqm",
+          "label": "花园面积",
+          "value": "32",
+          "unit": "平方米"
+        },
+        {
+          "key": "plantSpecies",
+          "label": "植物种类",
+          "value": "月季、韭菜、辣椒"
+        },
+        {
+          "key": "waterSource",
+          "label": "浇灌水源",
+          "value": "雨水收集"
+        },
+        {
+          "key": "maintenance",
+          "label": "管护情况",
+          "value": "需要整理"
+        },
+        {
+          "key": "seasonalChange",
+          "label": "季节变化",
+          "value": "夏季杂草增多，需要补充遮荫。"
+        }
+      ],
+      "notes": "演示如何记录家庭花园的生产与景观功能。",
+      "reviewStatus": "unverified",
+      "createdAt": "2026-07-23T02:15:00.000Z",
+      "updatedAt": "2026-07-23T02:15:00.000Z",
+      "isDemo": true
+    },
+    {
+      "id": "demo-water-1",
+      "moduleId": "water",
+      "recordTitle": "污水处理设备巡查",
+      "surveyDate": "2026-07-20",
+      "observer": "调研小组（示例）",
+      "siteId": "real-poi-15",
+      "siteName": "污水处理设备",
+      "longitude": 99.90802574467821,
+      "latitude": 24.63769900151838,
+      "values": {
+        "systemType": "污水处理设施",
+        "flowFrom": "村内生活污水（示例）",
+        "flowTo": "处理后排放点（示例）",
+        "serviceArea": "中心居住片区（示例）",
+        "condition": "需要维护"
+      },
+      "displayFields": [
+        {
+          "key": "systemType",
+          "label": "记录对象",
+          "value": "污水处理设施"
+        },
+        {
+          "key": "flowFrom",
+          "label": "来水方向",
+          "value": "村内生活污水（示例）"
+        },
+        {
+          "key": "flowTo",
+          "label": "去水方向",
+          "value": "处理后排放点（示例）"
+        },
+        {
+          "key": "serviceArea",
+          "label": "服务范围",
+          "value": "中心居住片区（示例）"
+        },
+        {
+          "key": "condition",
+          "label": "设施状况",
+          "value": "需要维护"
+        }
+      ],
+      "notes": "演示记录设施、服务片区和上下游关系。",
+      "reviewStatus": "unverified",
+      "createdAt": "2026-07-20T04:10:00.000Z",
+      "updatedAt": "2026-07-20T04:10:00.000Z",
+      "isDemo": true
+    },
+    {
+      "id": "demo-water-2",
+      "moduleId": "water",
+      "recordTitle": "污水处理池现场核对",
+      "surveyDate": "2026-07-25",
+      "observer": "示例记录人",
+      "siteId": "real-poi-22",
+      "siteName": "污水处理池",
+      "longitude": 99.90559468085353,
+      "latitude": 24.640148160444017,
+      "values": {
+        "systemType": "污水处理设施",
+        "flowFrom": "中片排水支沟（示例）",
+        "flowTo": "南侧水田方向（示例）",
+        "serviceArea": "中片住户（示例）",
+        "condition": "正常"
+      },
+      "displayFields": [
+        {
+          "key": "systemType",
+          "label": "记录对象",
+          "value": "污水处理设施"
+        },
+        {
+          "key": "flowFrom",
+          "label": "来水方向",
+          "value": "中片排水支沟（示例）"
+        },
+        {
+          "key": "flowTo",
+          "label": "去水方向",
+          "value": "南侧水田方向（示例）"
+        },
+        {
+          "key": "serviceArea",
+          "label": "服务范围",
+          "value": "中片住户（示例）"
+        },
+        {
+          "key": "condition",
+          "label": "设施状况",
+          "value": "正常"
+        }
+      ],
+      "notes": "上下游关系仍需通过走访和实地测绘核实。",
+      "reviewStatus": "unverified",
+      "createdAt": "2026-07-25T07:45:00.000Z",
+      "updatedAt": "2026-07-25T07:45:00.000Z",
+      "isDemo": true
+    },
+    {
+      "id": "demo-tea-1",
+      "moduleId": "tea",
+      "recordTitle": "春茶收购与土壤记录",
+      "surveyDate": "2026-04-26",
+      "observer": "调研小组（示例）",
+      "siteId": "real-poi-23",
+      "siteName": "茶厂（点位23）",
+      "longitude": 99.90994594562659,
+      "latitude": 24.636320611457283,
+      "values": {
+        "recordType": "茶厂",
+        "areaMu": "",
+        "annualYieldKg": "680",
+        "soilOrganicMatter": "3.2",
+        "residueResult": "示例检测：未见异常",
+        "management": "春茶已完成首轮收购与加工，关联茶园采用人工除草。"
+      },
+      "displayFields": [
+        {
+          "key": "recordType",
+          "label": "记录类型",
+          "value": "茶厂"
+        },
+        {
+          "key": "annualYieldKg",
+          "label": "年度产量",
+          "value": "680",
+          "unit": "千克"
+        },
+        {
+          "key": "soilOrganicMatter",
+          "label": "关联茶园土壤有机质",
+          "value": "3.2",
+          "unit": "%"
+        },
+        {
+          "key": "residueResult",
+          "label": "农药残留检测",
+          "value": "示例检测：未见异常"
+        },
+        {
+          "key": "management",
+          "label": "生产说明",
+          "value": "春茶已完成首轮收购与加工，关联茶园采用人工除草。"
+        }
+      ],
+      "notes": "数值仅用于展示年度追踪字段。",
+      "reviewStatus": "unverified",
+      "createdAt": "2026-04-26T03:30:00.000Z",
+      "updatedAt": "2026-04-26T03:30:00.000Z",
+      "isDemo": true
+    },
+    {
+      "id": "demo-tea-2",
+      "moduleId": "tea",
+      "recordTitle": "茶厂加工批次记录",
+      "surveyDate": "2026-05-08",
+      "observer": "示例记录人",
+      "siteId": "real-poi-24",
+      "siteName": "茶厂（点位24）",
+      "longitude": 99.9097835149206,
+      "latitude": 24.638819877214647,
+      "values": {
+        "recordType": "茶厂",
+        "areaMu": "",
+        "annualYieldKg": "1250",
+        "soilOrganicMatter": "",
+        "residueResult": "样品编号HT-DEMO-02",
+        "management": "演示记录收茶、杀青、揉捻和干燥批次。"
+      },
+      "displayFields": [
+        {
+          "key": "recordType",
+          "label": "记录类型",
+          "value": "茶厂"
+        },
+        {
+          "key": "annualYieldKg",
+          "label": "年度产量",
+          "value": "1250",
+          "unit": "千克"
+        },
+        {
+          "key": "residueResult",
+          "label": "样品编号",
+          "value": "HT-DEMO-02"
+        },
+        {
+          "key": "management",
+          "label": "生产说明",
+          "value": "演示记录收茶、杀青、揉捻和干燥批次。"
+        }
+      ],
+      "notes": "产量与样品编号均为示例。",
+      "reviewStatus": "unverified",
+      "createdAt": "2026-05-08T06:20:00.000Z",
+      "updatedAt": "2026-05-08T06:20:00.000Z",
+      "isDemo": true
+    }
+  ]
+}

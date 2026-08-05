@@ -9,6 +9,8 @@ export type Permission =
   | "comment"
   | "rateIssue"
   | "followProject"
+  | "startAction"
+  | "shareResource"
   | "submitResearch"
   | "reviewContent"
   | "manageIssues"
@@ -25,6 +27,8 @@ const rolePermissions: Record<UserRole, Permission[]> = {
     "comment",
     "rateIssue",
     "followProject",
+    "startAction",
+    "shareResource",
   ],
   [UserRole.Collaborator]: [
     "browse",
@@ -32,6 +36,8 @@ const rolePermissions: Record<UserRole, Permission[]> = {
     "joinActivity",
     "comment",
     "followProject",
+    "startAction",
+    "shareResource",
     "submitResearch",
   ],
   [UserRole.Admin]: [
@@ -43,6 +49,8 @@ const rolePermissions: Record<UserRole, Permission[]> = {
     "comment",
     "rateIssue",
     "followProject",
+    "startAction",
+    "shareResource",
     "submitResearch",
     "reviewContent",
     "manageIssues",

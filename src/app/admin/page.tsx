@@ -1,5 +1,5 @@
-import { AdminDashboard } from "@/components/admin/AdminDashboard";
+import { VerifiedEmptyPage } from "@/components/common/VerifiedEmptyPage";
 
-export default function AdminPage() {
-  return <main className="admin-page"><AdminDashboard /></main>;
+export default function Page() {
+  return <VerifiedEmptyPage eyebrow="PLATFORM ADMIN" title="平台管理" />;
 }

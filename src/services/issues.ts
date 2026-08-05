@@ -32,7 +32,7 @@ export const issueService = {
           date,
           status: IssueStatus.Pending,
           title: "问题已提交",
-          description: "演示上报已保存到当前浏览器会话，等待平台审核。",
+          description: "本次记录已保存到当前浏览器会话。",
           operator: "当前村民",
         },
       ],

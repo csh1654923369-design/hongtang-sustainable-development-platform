@@ -1,0 +1,87 @@
+{
+  "title": "红塘村核心DSM与周边SRTM两层本地地形",
+  "heightAsset": "/data/hongtang-terrain-513.f32",
+  "sourceAsset": "../平台素材/Production_1-tif/Production_1-tif_DSM_merge.tif",
+  "sourceKeptOutsideRepository": true,
+  "coordinateReferenceSystem": "EPSG:32647",
+  "gridWidth": 513,
+  "gridHeight": 513,
+  "tileSampleWidth": 32,
+  "tileSampleHeight": 32,
+  "byteOrder": "little-endian-float32",
+  "gridOrder": "north-to-south rows, west-to-east columns",
+  "sourceNoData": -9999.0,
+  "sourcePixelSizeMeters": 0.04,
+  "effectiveGridSpacingMeters": {
+    "x": 1.9668750000000002,
+    "y": 2.08203125
+  },
+  "surfaceMethod": "25th-percentile neighborhood sampling plus two smoothing passes",
+  "utmBounds": {
+    "west": 591299.968642203,
+    "south": 2724476.98059454,
+    "east": 592307.048642203,
+    "north": 2725543.02059454
+  },
+  "wgs84Corners": {
+    "northWest": {
+      "longitude": 99.90214371190551,
+      "latitude": 24.641417028694523
+    },
+    "northEast": {
+      "longitude": 99.91209378041356,
+      "latitude": 24.641356991607438
+    },
+    "southWest": {
+      "longitude": 99.90207457906962,
+      "latitude": 24.63179025413238
+    },
+    "southEast": {
+      "longitude": 99.91202388534289,
+      "latitude": 24.631730243558692
+    }
+  },
+  "wgs84Bounds": {
+    "west": 99.90207457906962,
+    "south": 24.631730243558692,
+    "east": 99.91209378041356,
+    "north": 24.641417028694523
+  },
+  "fallbackHeight": 1868.5478515625,
+  "statistics": {
+    "minimum": 1556.8316650390625,
+    "maximum": 1672.898193359375,
+    "mean": 1605.688232421875
+  },
+  "sourceLayout": {
+    "sourceWidth": 25177,
+    "sourceHeight": 26651,
+    "sourceDataOffset": 213586,
+    "sourceRowStride": 100708
+  },
+  "outputBytes": 1052676,
+  "regionalContext": {
+    "heightAsset": "/data/hongtang-terrain-context.f32",
+    "reliefAsset": "/data/hongtang-terrain-context.webp",
+    "sourceAsset": "../平台素材/地形数据/SRTM_N24E099/N24E099.hgt.gz",
+    "sourceUrl": "https://s3.amazonaws.com/elevation-tiles-prod/skadi/N24/N24E099.hgt.gz",
+    "sourceDataset": "Mapzen Terrain Tiles on AWS",
+    "sourceAccess": "public, no account or API key required",
+    "gridWidth": 613,
+    "gridHeight": 649,
+    "wgs84Bounds": {
+      "west": 99.82,
+      "south": 24.55,
+      "east": 99.99,
+      "north": 24.73
+    },
+    "verticalOffsetToLocalDsmMeters": -75.45212307692714,
+    "statistics": {
+      "minimum": 1202.5478515625,
+      "maximum": 2774.5478515625,
+      "mean": 1937.2523193359375
+    },
+    "heightOutputBytes": 1591348,
+    "reliefOutputBytes": 69700
+  }
+}

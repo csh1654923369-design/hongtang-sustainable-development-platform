@@ -23,9 +23,27 @@ export enum ProjectStatus {
   Maintenance = "maintenance",
 }
 
+export enum MicroActionStatus {
+  Pending = "pending",
+  Recruiting = "recruiting",
+  Experimenting = "experimenting",
+  Reviewing = "reviewing",
+  Completed = "completed",
+}
+
 export enum MapFeatureType {
+  Garden = "garden",
+  TeaGarden = "tea-garden",
+  TeaFactory = "tea-factory",
+  WaterFacility = "water-facility",
+  SolarFacility = "solar-facility",
+  SafetyRisk = "safety-risk",
+  VillageMemory = "village-memory",
   Issue = "issue",
   Project = "project",
+  CommunityAction = "community-action",
+  ResourceOffer = "resource-offer",
+  ResourceNeed = "resource-need",
   CompletedAction = "completed-action",
   PublicService = "public-service",
   Ecology = "ecology",
@@ -113,6 +131,22 @@ export interface ProjectUpdate extends DemoRecord {
   author: string;
 }
 
+export interface ProjectTask extends DemoRecord {
+  title: string;
+  description: string;
+  effort: string;
+  role: string;
+  slots: number;
+  status: "open" | "claimed" | "completed";
+}
+
+export interface ProjectResourceNeed extends DemoRecord {
+  label: string;
+  category: "space" | "tool" | "material" | "skill" | "knowledge" | "time";
+  quantity: string;
+  status: "open" | "matched";
+}
+
 export interface Project extends DemoRecord {
   slug: string;
   title: string;
@@ -130,10 +164,110 @@ export interface Project extends DemoRecord {
   type: string;
   budgetLabel: string;
   participants: string[];
+  origin: string;
+  evidence: string[];
+  communityVoices: string[];
+  facilitator: string;
+  nextMeeting: string;
+  decisionMethod: string;
+  maintenanceOwner: string;
+  tasks: ProjectTask[];
+  resourceNeeds: ProjectResourceNeed[];
   accent: string;
   updates: ProjectUpdate[];
   relatedIssueIds: string[];
   relatedActivityIds: string[];
+}
+
+export interface MicroActionUpdate extends DemoRecord {
+  date: string;
+  title: string;
+  content: string;
+  author: string;
+}
+
+export interface MicroAction extends DemoRecord {
+  code: string;
+  title: string;
+  summary: string;
+  desiredChange: string;
+  goalId: string;
+  status: MicroActionStatus;
+  location: string;
+  longitude: number;
+  latitude: number;
+  mapX: number;
+  mapY: number;
+  initiator: string;
+  facilitator: string;
+  submittedByMe: boolean;
+  createdAt: string;
+  durationDays: number;
+  participantCount: number;
+  existingAssets: string[];
+  neededResources: string[];
+  rolesNeeded: string[];
+  nextStep: string;
+  maintenancePlan: string;
+  decisionMethod: string;
+  updates: MicroActionUpdate[];
+}
+
+export interface NewMicroActionInput {
+  title: string;
+  summary: string;
+  desiredChange: string;
+  goalId: string;
+  location: string;
+  longitude: number;
+  latitude: number;
+  mapX: number;
+  mapY: number;
+  durationDays: number;
+  existingAssets: string[];
+  neededResources: string[];
+  rolesNeeded: string[];
+  nextStep: string;
+  maintenancePlan: string;
+  decisionMethod: string;
+}
+
+export type CommunityResourceMode = "offer" | "need";
+export type CommunityResourceCategory = "space" | "tool" | "material" | "skill" | "knowledge" | "time";
+
+export interface CommunityResource extends DemoRecord {
+  mode: CommunityResourceMode;
+  category: CommunityResourceCategory;
+  title: string;
+  description: string;
+  location: string;
+  longitude: number;
+  latitude: number;
+  mapX: number;
+  mapY: number;
+  availability: string;
+  contactLabel: string;
+  status: "open" | "matched";
+  updatedAt: string;
+  privacy: "public-area" | "group-only";
+  goalId: string;
+  submittedByMe: boolean;
+  relatedActionId?: string;
+}
+
+export interface NewCommunityResourceInput {
+  mode: CommunityResourceMode;
+  category: CommunityResourceCategory;
+  title: string;
+  description: string;
+  location: string;
+  longitude: number;
+  latitude: number;
+  mapX: number;
+  mapY: number;
+  availability: string;
+  privacy: "public-area" | "group-only";
+  goalId: string;
 }
 
 export interface IssueStatusHistory extends DemoRecord {
@@ -225,7 +359,9 @@ export interface GeometryPoint {
   coordinates: [number, number];
 }
 
-export interface SpatialFeature extends DemoRecord {
+export interface SpatialFeature {
+  id: string;
+  isDemo: boolean;
   title: string;
   featureType: MapFeatureType;
   status: string;
@@ -243,6 +379,8 @@ export interface SpatialFeature extends DemoRecord {
   geojson?: Record<string, unknown>;
   linkedId?: string;
   imageLabel: string;
+  imageUrls?: string[];
+  sourceLabel?: string;
 }
 
 export interface ResearchSubmission extends DemoRecord {
