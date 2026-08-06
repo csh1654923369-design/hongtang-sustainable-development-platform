@@ -377,6 +377,7 @@
       const parentOrigin = window.location.origin;
       const cesiumEndpointUrl = "/api/cesium-ion/asset";
       const imageryMetadataUrl = "/data/hongtang-orthophoto.json";
+      const terrainMetadataUrl = "/data/hongtang-terrain.json";
       const localModelUrl = "/api/local-cesium-model/tileset.json";
       const ZOOM_SENSITIVITY_LEGACY_SCALE = 1.5;
       const modelCenter = { longitude: 99.908740607, latitude: 24.636255278, height: 1764 };
@@ -541,6 +542,80 @@
         return response.json();
       };
 
+      const loadLocalTerrainSampler = async () => {
+        const metadata = await fetchJson(terrainMetadataUrl);
+        const loadGrid = async (asset, widthValue, heightValue, bounds) => {
+          const width = Number(widthValue);
+          const height = Number(heightValue);
+          if (!asset || !bounds || !Number.isInteger(width) || !Number.isInteger(height)) {
+            return undefined;
+          }
+          const response = await fetch(asset, { cache: "force-cache" });
+          if (!response.ok) throw new Error(`本地高程资源不可用：${asset}`);
+          const buffer = await response.arrayBuffer();
+          if (buffer.byteLength !== width * height * 4) {
+            throw new Error(`本地高程资源尺寸不正确：${asset}`);
+          }
+          const view = new DataView(buffer);
+          const values = new Float32Array(width * height);
+          for (let index = 0; index < values.length; index += 1) {
+            values[index] = view.getFloat32(index * 4, true);
+          }
+          const west = Number(bounds.west);
+          const south = Number(bounds.south);
+          const east = Number(bounds.east);
+          const north = Number(bounds.north);
+          return (longitude, latitude) => {
+            if (
+              longitude < west || longitude > east
+              || latitude < south || latitude > north
+            ) return undefined;
+            const x = Cesium.Math.clamp(
+              ((longitude - west) / (east - west)) * (width - 1),
+              0,
+              width - 1,
+            );
+            const y = Cesium.Math.clamp(
+              ((north - latitude) / (north - south)) * (height - 1),
+              0,
+              height - 1,
+            );
+            const x0 = Math.floor(x);
+            const y0 = Math.floor(y);
+            const x1 = Math.min(width - 1, x0 + 1);
+            const y1 = Math.min(height - 1, y0 + 1);
+            const tx = x - x0;
+            const ty = y - y0;
+            const value = Cesium.Math.lerp(
+              Cesium.Math.lerp(values[y0 * width + x0], values[y0 * width + x1], tx),
+              Cesium.Math.lerp(values[y1 * width + x0], values[y1 * width + x1], tx),
+              ty,
+            );
+            return Number.isFinite(value) && value > -9000 ? value : undefined;
+          };
+        };
+        const localSample = await loadGrid(
+          metadata.heightAsset,
+          metadata.gridWidth,
+          metadata.gridHeight,
+          metadata.wgs84Bounds,
+        );
+        const context = metadata.regionalContext || {};
+        const contextSample = await loadGrid(
+          context.heightAsset,
+          context.gridWidth,
+          context.gridHeight,
+          context.wgs84Bounds,
+        );
+        terrainFallbackHeight = Number(metadata.statistics?.mean) || 1605;
+        terrainSampler = (longitude, latitude) => (
+          localSample?.(longitude, latitude)
+          ?? contextSample?.(longitude, latitude)
+          ?? terrainFallbackHeight
+        );
+        body.dataset.localHeightSamplerReady = "true";
+      };
+
       const withTimeout = (promise, timeoutMs, message) => Promise.race([
         promise,
         new Promise((_, reject) => {
@@ -595,6 +670,10 @@
 
       const addEnvironmentImagery = async (endpoint) => {
         viewer.imageryLayers.removeAll();
+        if (!terrainReady) {
+          body.dataset.localImageryReady = "false";
+          return;
+        }
         const imagery = endpoint.environment?.imagery;
         if (endpoint.mode === "client-ion") {
           try {
@@ -863,16 +942,39 @@
             viewer.scene.requestRender();
           });
         };
+        const spatialPositions = (coordinates, lift = 3) => {
+          const flat = coordinates.flatMap((coordinate) => [
+            Number(coordinate[0]),
+            Number(coordinate[1]),
+          ]);
+          if (terrainReady) return Cesium.Cartesian3.fromDegreesArray(flat);
+          return Cesium.Cartesian3.fromDegreesArrayHeights(
+            coordinates.flatMap((coordinate) => {
+              const longitude = Number(coordinate[0]);
+              const latitude = Number(coordinate[1]);
+              const height = terrainSampler
+                ? terrainSampler(longitude, latitude)
+                : terrainFallbackHeight;
+              return [longitude, latitude, height + lift];
+            }),
+          );
+        };
         (Array.isArray(data.zones) ? data.zones : []).forEach((zone) => {
-          const flat = zone.polygon.flatMap((coordinate) => [Number(coordinate[0]), Number(coordinate[1])]);
+          const polygon = terrainReady
+            ? {
+                hierarchy: spatialPositions(zone.polygon),
+                material: Cesium.Color.fromCssColorString("#39758a").withAlpha(.18),
+                classificationType: Cesium.ClassificationType.BOTH,
+                zIndex: 1,
+              }
+            : {
+                hierarchy: spatialPositions(zone.polygon, 2),
+                material: Cesium.Color.fromCssColorString("#39758a").withAlpha(.18),
+                perPositionHeight: true,
+              };
           const entity = viewer.entities.add({
             id: `hongtang-spatial-${zone.id}`,
-            polygon: {
-              hierarchy: Cesium.Cartesian3.fromDegreesArray(flat),
-              material: Cesium.Color.fromCssColorString("#39758a").withAlpha(.18),
-              classificationType: Cesium.ClassificationType.BOTH,
-              zIndex: 1,
-            },
+            polygon,
           });
           register(zone.id, { entity, type: "zone", item: zone, anchorDegrees: spatialCenter(zone.polygon) });
         });
@@ -883,15 +985,16 @@
         };
         (Array.isArray(data.lines) ? data.lines : []).forEach((line) => {
           const style = lineStyle[line.kind] || lineStyle["branch-drain"];
-          const flat = line.path.flatMap((coordinate) => [Number(coordinate[0]), Number(coordinate[1])]);
           const entity = viewer.entities.add({
             id: `hongtang-spatial-${line.id}`,
             polyline: {
-              positions: Cesium.Cartesian3.fromDegreesArray(flat),
+              positions: spatialPositions(line.path, 4),
               width: style.width,
               material: Cesium.Color.fromCssColorString(style.color).withAlpha(.94),
-              clampToGround: true,
-              classificationType: Cesium.ClassificationType.BOTH,
+              clampToGround: terrainReady,
+              classificationType: terrainReady
+                ? Cesium.ClassificationType.BOTH
+                : undefined,
               zIndex: 2,
             },
           });
@@ -1589,8 +1692,16 @@
         } catch (error) {
           console.warn("Cesium 世界地形加载失败，暂时使用基础球面。", error);
           terrainProvider = new Cesium.EllipsoidTerrainProvider();
-          body.dataset.terrainMode = "ellipsoid-fallback";
-          body.dataset.terrainContext = "ellipsoid-fallback";
+          try {
+            await loadLocalTerrainSampler();
+            body.dataset.terrainMode = "local-height-overlay";
+            body.dataset.terrainContext = "local-height-grid";
+          } catch (heightError) {
+            console.warn("红塘本地高程网格加载失败。", heightError);
+            body.dataset.localHeightSamplerReady = "false";
+            body.dataset.terrainMode = "ellipsoid-fallback";
+            body.dataset.terrainContext = "ellipsoid-fallback";
+          }
         }
 
         viewer = new Cesium.Viewer("cesiumContainer", {
@@ -1610,7 +1721,14 @@
           maximumRenderTimeChange: Number.POSITIVE_INFINITY,
         });
         setVillageCamera(false);
-        viewer.scene.globe.show = true;
+        viewer.scene.globe.show = terrainReady;
+        if (!terrainReady) {
+          if (viewer.scene.skyBox) viewer.scene.skyBox.show = false;
+          if (viewer.scene.skyAtmosphere) viewer.scene.skyAtmosphere.show = false;
+          if (viewer.scene.sun) viewer.scene.sun.show = false;
+          if (viewer.scene.moon) viewer.scene.moon.show = false;
+          viewer.scene.backgroundColor = Cesium.Color.fromCssColorString("#d7dfd3");
+        }
         viewer.scene.globe.depthTestAgainstTerrain = false;
         viewer.scene.globe.maximumScreenSpaceError = 6;
         viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString("#d7dfd3");
@@ -1668,7 +1786,7 @@
         setStatus(
           terrainReady
             ? "Cesium 世界地形、航空影像与红塘实景已就绪，正在载入地点…"
-            : "红塘实景已就绪，世界地形暂时使用基础球面。",
+            : "红塘实景和专题要素已就绪，周边世界地形暂未连接。",
           "ready",
         );
         postToParent({ type: "hongtang-gaussian-ready", engine: "cesiumjs" });
