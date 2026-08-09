@@ -3,7 +3,10 @@ from __future__ import annotations
 import json
 import mimetypes
 import os
+import shutil
 import ssl
+import subprocess
+import sys
 import time
 import urllib.error
 import urllib.parse
@@ -18,11 +21,16 @@ SOURCE_ROOT = Path(__file__).resolve().parents[1]
 PROJECT_ROOT = SOURCE_ROOT.parent
 PHOTO_ROOT = PROJECT_ROOT / "平台素材" / "现场照片" / "web"
 MANIFEST_PATH = PROJECT_ROOT / "平台素材" / "现场照片" / "supabase-upload-manifest.json"
-DATA_ROOT = SOURCE_ROOT / "public" / "data"
 BUCKET = "hongtang-photos"
 WORKERS = 8
 RETRIES = 5
 CHECK_REMOTE = os.environ.get("SUPABASE_CHECK_REMOTE", "0") == "1"
+SKIP_DATA_SYNC = os.environ.get("SUPABASE_SKIP_DATA_SYNC", "0") == "1"
+DATASET_SLUGS = [
+    "hongtang-real-map-features",
+    "hongtang-water-system",
+    "hongtang-topic-records",
+]
 
 
 @dataclass(frozen=True)
@@ -51,7 +59,13 @@ def public_url(object_path: str) -> str:
     return f"{SUPABASE_URL}/storage/v1/object/public/{BUCKET}/{quoted}"
 
 
-def authenticated_request(url: str, *, method: str, data: bytes | None = None, headers: dict[str, str] | None = None):
+def authenticated_request(
+    url: str,
+    *,
+    method: str,
+    data: bytes | None = None,
+    headers: dict[str, str] | None = None,
+):
     request_headers = {
         "apikey": SERVICE_KEY,
         "Authorization": f"Bearer {SERVICE_KEY}",
@@ -84,17 +98,12 @@ def upload_file(path: Path) -> UploadResult:
     last_error = "unknown error"
     for attempt in range(1, RETRIES + 1):
         try:
-            with path.open("rb") as source:
-                payload = source.read()
+            payload = path.read_bytes()
             with authenticated_request(
                 endpoint,
                 method="POST",
                 data=payload,
-                headers={
-                    "Content-Type": content_type,
-
-                    "x-upsert": "true",
-                },
+                headers={"Content-Type": content_type, "x-upsert": "true"},
             ) as response:
                 if response.status not in {200, 201}:
                     raise RuntimeError(f"Unexpected upload status: {response.status}")
@@ -108,60 +117,26 @@ def upload_file(path: Path) -> UploadResult:
     raise RuntimeError(f"Upload failed for {object_path}: {last_error}")
 
 
-def cloud_map_payload() -> dict:
-    payload = json.loads((DATA_ROOT / "hongtang-real-map-features.json").read_text(encoding="utf-8"))
-    for feature in payload["features"]:
-        next_urls = []
-        for image_url in feature.get("imageUrls", []):
-            prefix = "/local-photos/"
-            if not image_url.startswith(prefix):
-                raise RuntimeError(f"Unexpected local photo URL: {image_url}")
-            next_urls.append(public_url(image_url[len(prefix):]))
-        feature["imageUrls"] = next_urls
-    payload["meta"]["dataSource"] = "supabase"
-    payload["meta"]["photoStorage"] = "supabase-storage"
-    payload["meta"]["supabaseBucket"] = BUCKET
-    payload["meta"]["supabaseProjectRef"] = PROJECT_REF
-    payload["meta"]["notice"] = "2D与3D地图共用Supabase数据库和Storage；本地JSON仅作为连接失败时的回退。"
-    return payload
-
-
-def upsert_datasets() -> list[dict]:
-    datasets = [
-        {
-            "slug": "hongtang-real-map-features",
-            "payload": cloud_map_payload(),
-            "is_public": True,
-            "source_version": "supabase-v1",
-        },
-        {
-            "slug": "hongtang-water-system",
-            "payload": json.loads((DATA_ROOT / "hongtang-water-system.json").read_text(encoding="utf-8")),
-            "is_public": True,
-            "source_version": "supabase-v1",
-        },
-        {
-            "slug": "hongtang-topic-records",
-            "payload": json.loads((DATA_ROOT / "hongtang-topic-records.json").read_text(encoding="utf-8")),
-            "is_public": True,
-            "source_version": "supabase-v1",
-        },
-    ]
-    endpoint = f"{SUPABASE_URL}/rest/v1/platform_datasets?on_conflict=slug"
-    body = json.dumps(datasets, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
-    with authenticated_request(
-        endpoint,
-        method="POST",
-        data=body,
-        headers={
-            "Content-Type": "application/json",
-            "Prefer": "resolution=merge-duplicates,return=representation",
-        },
-    ) as response:
-        returned = json.loads(response.read().decode("utf-8"))
-    if len(returned) != len(datasets):
-        raise RuntimeError(f"Expected {len(datasets)} datasets, received {len(returned)}")
-    return returned
+def sync_datasets_via_cli() -> list[str]:
+    child_env = os.environ.copy()
+    child_env.pop("SUPABASE_SERVICE_KEY", None)
+    child_env.pop("SUPABASE_URL", None)
+    subprocess.run(
+        [sys.executable, str(SOURCE_ROOT / "scripts" / "build-supabase-data-migration.py")],
+        cwd=SOURCE_ROOT,
+        env=child_env,
+        check=True,
+    )
+    npx = shutil.which("npx.cmd") or shutil.which("npx")
+    if not npx:
+        raise RuntimeError("Cannot find npx. Install Node.js before syncing Supabase datasets.")
+    subprocess.run(
+        [npx, "supabase", "db", "push", "--linked", "--include-all", "--yes"],
+        cwd=SOURCE_ROOT,
+        env=child_env,
+        check=True,
+    )
+    return DATASET_SLUGS
 
 
 photos = sorted(PHOTO_ROOT.rglob("*.webp"))
@@ -183,14 +158,14 @@ with ThreadPoolExecutor(max_workers=WORKERS) as executor:
             print(f"Progress {completed}/{len(futures)}; reused {reused}", flush=True)
 
 results.sort(key=lambda result: result.object_path)
-datasets = upsert_datasets()
+datasets = DATASET_SLUGS if SKIP_DATA_SYNC else sync_datasets_via_cli()
 manifest = {
     "version": 1,
     "generatedAt": datetime.now(timezone.utc).isoformat(),
     "projectRef": PROJECT_REF,
     "bucket": BUCKET,
     "photos": [asdict(result) for result in results],
-    "datasets": [item["slug"] for item in datasets],
+    "datasets": datasets,
 }
 MANIFEST_PATH.write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
 
@@ -203,7 +178,7 @@ print(
             "photos": len(results),
             "uploadedMB": round(sum(result.local_bytes for result in results if not result.reused) / 1024 / 1024, 1),
             "reused": sum(result.reused for result in results),
-            "datasets": [item["slug"] for item in datasets],
+            "datasets": datasets,
         },
         ensure_ascii=False,
     ),

@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import json
+import os
+from datetime import datetime, timezone
 from pathlib import Path
 
 
 SOURCE_ROOT = Path(__file__).resolve().parents[1]
-PROJECT_ROOT = SOURCE_ROOT.parent
 DATA_ROOT = SOURCE_ROOT / "public" / "data"
-OUTPUT = SOURCE_ROOT / "supabase" / "migrations" / "20260809102000_seed_platform_datasets.sql"
+VERSION = os.environ.get("SUPABASE_DATA_MIGRATION_VERSION") or datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+OUTPUT = SOURCE_ROOT / "supabase" / "migrations" / f"{VERSION}_seed_platform_datasets.sql"
 PROJECT_REF = "devxrszyvoocerobdfhz"
 BUCKET = "hongtang-photos"
 PUBLIC_BASE = f"https://{PROJECT_REF}.supabase.co/storage/v1/object/public/{BUCKET}/"
@@ -61,5 +63,6 @@ set payload = excluded.payload,
     updated_at = now();
 """
 
+OUTPUT.parent.mkdir(parents=True, exist_ok=True)
 OUTPUT.write_text(sql, encoding="utf-8")
 print(f"Wrote {OUTPUT} ({OUTPUT.stat().st_size} bytes)")
