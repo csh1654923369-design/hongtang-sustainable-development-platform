@@ -1,12 +1,13 @@
 "use client";
 
-import { Building2, CircleParking, Droplets, Factory, Flower2, HandHeart, History, House, Landmark, Leaf, MapPin, PackageSearch, School, ShieldCheck, Sparkles, Sprout, SunMedium, Toilet, Trash2, Trees, TriangleAlert, Users, Wrench } from "lucide-react";
+import type { CSSProperties, MouseEvent } from "react";
+import { Building2, CircleParking, Droplets, Factory, Flower2, HandHeart, History, House, Landmark, Leaf, MapPin, PackageSearch, School, ShieldCheck, Sparkles, SunMedium, Toilet, Trash2, TriangleAlert, Users, Wrench } from "lucide-react";
 import { SpatialFeature, MapFeatureType } from "@/types";
 import { cn } from "@/lib/utils";
 
 const icons = {
   [MapFeatureType.Garden]: Flower2,
-  [MapFeatureType.TeaGarden]: Sprout,
+  [MapFeatureType.TeaGarden]: Factory,
   [MapFeatureType.TeaFactory]: Factory,
   [MapFeatureType.WaterFacility]: Droplets,
   [MapFeatureType.SolarFacility]: SunMedium,
@@ -21,7 +22,7 @@ const icons = {
   [MapFeatureType.PublicService]: Building2,
   [MapFeatureType.Ecology]: Leaf,
   [MapFeatureType.Culture]: Landmark,
-  [MapFeatureType.ResearchPhoto]: Trees,
+  [MapFeatureType.ResearchPhoto]: MapPin,
   [MapFeatureType.Building]: Landmark,
   [MapFeatureType.Road]: MapPin,
   [MapFeatureType.Water]: Leaf,
@@ -41,6 +42,12 @@ const publicServiceIcons = {
 
 type PublicServiceIconKey = keyof typeof publicServiceIcons;
 
+export type MapMarkerPosition = {
+  x: number;
+  y: number;
+  unit?: "percent" | "pixel";
+};
+
 function getPublicServiceIconKey(title: string): PublicServiceIconKey {
   if (/厕所|公厕|卫生间/.test(title)) return "toilet";
   if (/停车/.test(title)) return "parking";
@@ -52,22 +59,42 @@ function getPublicServiceIconKey(title: string): PublicServiceIconKey {
   if (/居|住宅|民宿/.test(title)) return "house";
   return "building";
 }
-export function MapMarker({ feature, active, onClick, position }: { feature: SpatialFeature; active: boolean; onClick: () => void; position?: { x: number; y: number } }) {
+export function MapMarker({ feature, active, related = false, muted = false, onClick, position, mapScale = 1 }: { feature: SpatialFeature; active: boolean; related?: boolean; muted?: boolean; onClick: (event: MouseEvent<HTMLButtonElement>) => void; position?: MapMarkerPosition; mapScale?: number }) {
   const Icon = feature.featureType === MapFeatureType.PublicService
     ? publicServiceIcons[getPublicServiceIconKey(feature.title)]
     : icons[feature.featureType];
   const markerPosition = position ?? { x: feature.mapX, y: feature.mapY };
+  const positionUnit = markerPosition.unit === "pixel" ? "px" : "%";
+  const isResearchPoint = feature.featureType === MapFeatureType.ResearchPhoto;
+  const markerLabel = isResearchPoint ? "村景记录" : feature.title;
   return (
     <button
-      className={cn("map-marker", `marker-${feature.featureType}`, active && "active")}
-      style={{ left: `${markerPosition.x}%`, top: `${markerPosition.y}%` }}
+      className={cn("map-marker", isResearchPoint && "map-marker-dot", `marker-${feature.featureType}`, active && "active", related && "related", muted && "relation-muted")}
+      style={{
+        left: `${markerPosition.x}${positionUnit}`,
+        top: `${markerPosition.y}${positionUnit}`,
+        "--map-scale": mapScale,
+      } as CSSProperties & Record<"--map-scale", number>}
       onClick={onClick}
-      aria-label={`${feature.title}，${feature.status}`}
-      title={feature.title}
+      onPointerDown={(event) => event.stopPropagation()}
+      onDoubleClick={(event) => event.stopPropagation()}
+      aria-label={`${markerLabel}，${feature.status}`}
+      title={markerLabel}
       data-feature-id={feature.id}
       data-feature-type={feature.featureType}
     >
-      <Icon size={16} /><span>{feature.title}</span>
+      {isResearchPoint ? (
+        <span className="map-marker-dot-core" aria-hidden="true" />
+      ) : (
+        <>
+          <svg className="map-marker-pin" viewBox="0 0 84 104" aria-hidden="true" focusable="false" shapeRendering="geometricPrecision">
+            <path className="map-marker-pin-shape" d="M42 101C35 88 7 65 7 42A35 35 0 1 1 77 42C77 65 49 88 42 101Z" />
+            <circle className="map-marker-pin-core" cx="42" cy="42" r="24" />
+          </svg>
+          <Icon className="map-marker-symbol" size={17} aria-hidden="true" />
+        </>
+      )}
+      <span className="map-marker-label">{markerLabel}</span>
     </button>
   );
 }

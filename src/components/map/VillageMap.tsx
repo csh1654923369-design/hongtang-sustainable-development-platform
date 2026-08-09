@@ -1,10 +1,11 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect } from "react";
-import { SpatialFeature } from "@/types";
+import { useCallback, useEffect, useMemo } from "react";
+import { MapFeatureType, SpatialFeature } from "@/types";
 import { MapMarker } from "@/components/map/MapMarker";
 import { useMapZoom } from "@/components/map/useMapZoom";
+import type { MapScreenAnchor } from "@/lib/mapBubble";
 import {
   WaterSpatialSelection,
   WaterSystemData,
@@ -63,7 +64,10 @@ export function VillageMap({
   basemap = "handdrawn",
   waterSystem,
   selectedSpatialId,
+  relatedWaterIds = [],
   onSelectSpatial,
+  onSelectionAnchorChange,
+  onBackgroundClick,
 }: {
   features: SpatialFeature[];
   selectedId?: string;
@@ -73,16 +77,24 @@ export function VillageMap({
   basemap?: VillageBasemap;
   waterSystem?: WaterSystemData;
   selectedSpatialId?: string;
+  relatedWaterIds?: string[];
   onSelectSpatial?: (selection: WaterSpatialSelection) => void;
+  onSelectionAnchorChange?: (anchor?: MapScreenAnchor) => void;
+  onBackgroundClick?: () => void;
 }) {
-  const { containerRef, frameRef, frameStyle, zoomed, scale, reset, panHandlers } = useMapZoom();
+  const { containerRef, frameRef, frameStyle, viewChanged, scale, isTransitioning, reset, focusAt, panHandlers } = useMapZoom();
 
   useEffect(() => {
     reset();
   }, [basemap, reset]);
 
   const clickMap = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (!interactiveLocation || !onMapClick) return;
+    const target = event.target as HTMLElement;
+    if (target.closest("button, [role='button']")) return;
+    if (!interactiveLocation || !onMapClick) {
+      onBackgroundClick?.();
+      return;
+    }
     const rect = event.currentTarget.getBoundingClientRect();
     onMapClick(
       ((event.clientX - rect.left) / rect.width) * 100,
@@ -95,11 +107,68 @@ export function VillageMap({
     ((geographic.bounds.north - latitude) / (geographic.bounds.north - geographic.bounds.south)) * geographic.height,
   ];
   const activate = (selection: WaterSpatialSelection) => onSelectSpatial?.(selection);
+  const relatedWaterIdSet = useMemo(() => new Set(relatedWaterIds), [relatedWaterIds]);
+  const hasWaterRelation = Boolean(selectedSpatialId && relatedWaterIds.length);
+  const selectedPosition = useMemo(() => {
+    if (selectedId) {
+      const feature = features.find((item) => item.id === selectedId);
+      if (feature) return positionOnBasemap(feature.longitude, feature.latitude, geographic.bounds);
+    }
+    if (selectedSpatialId && waterSystem) {
+      const zone = waterSystem.zones.find((item) => item.id === selectedSpatialId);
+      const line = waterSystem.lines.find((item) => item.id === selectedSpatialId);
+      const coordinates = zone?.polygon ?? line?.path;
+      if (coordinates?.length) {
+        const [longitude, latitude] = coordinates.reduce(
+          (sum, coordinate) => [sum[0] + coordinate[0], sum[1] + coordinate[1]],
+          [0, 0],
+        ).map((value) => value / coordinates.length);
+        return positionOnBasemap(longitude, latitude, geographic.bounds);
+      }
+    }
+    return undefined;
+  }, [features, geographic.bounds, selectedId, selectedSpatialId, waterSystem]);
+
+  useEffect(() => {
+    if (selectedPosition) focusAt(selectedPosition.x, selectedPosition.y);
+  }, [focusAt, selectedId, selectedPosition, selectedSpatialId]);
+
+  const reportSelectionAnchor = useCallback(() => {
+    if (!selectedPosition || !containerRef.current || !frameRef.current) {
+      onSelectionAnchorChange?.(undefined);
+      return;
+    }
+    const stageRect = containerRef.current.getBoundingClientRect();
+    const frameRect = frameRef.current.getBoundingClientRect();
+    const x = frameRect.left - stageRect.left + frameRect.width * selectedPosition.x / 100;
+    const y = frameRect.top - stageRect.top + frameRect.height * selectedPosition.y / 100;
+    onSelectionAnchorChange?.({
+      x,
+      y,
+      width: stageRect.width,
+      height: stageRect.height,
+      visible: x >= 0 && x <= stageRect.width && y >= 0 && y <= stageRect.height,
+    });
+  }, [containerRef, frameRef, onSelectionAnchorChange, selectedPosition]);
+
+  useEffect(() => {
+    let animationFrame: number | undefined;
+    const update = () => {
+      reportSelectionAnchor();
+      if (isTransitioning) animationFrame = window.requestAnimationFrame(update);
+    };
+    update();
+    window.addEventListener("resize", reportSelectionAnchor);
+    return () => {
+      if (animationFrame !== undefined) window.cancelAnimationFrame(animationFrame);
+      window.removeEventListener("resize", reportSelectionAnchor);
+    };
+  }, [frameStyle.transform, isTransitioning, reportSelectionAnchor]);
 
   return (
     <div className={`village-map basemap-${basemap} ${interactiveLocation ? "location-mode" : ""}`} onClick={clickMap}>
       <div
-        className={`map-geographic-stage ${zoomed ? "zoomed" : ""}`}
+        className={`map-geographic-stage ${viewChanged ? "view-changed" : ""}`}
         role="img"
         aria-label={geographic.alt}
         ref={containerRef}
@@ -116,6 +185,7 @@ export function VillageMap({
             width={geographic.width}
             height={geographic.height}
             unoptimized
+            draggable={false}
           />
           {waterSystem ? (
             <svg
@@ -127,7 +197,7 @@ export function VillageMap({
               {waterSystem.zones.map((zone) => (
                 <polygon
                   key={zone.id}
-                  className={`home-water-zone ${selectedSpatialId === zone.id ? "active" : ""}`}
+                  className={`home-water-zone ${selectedSpatialId === zone.id ? "active" : ""} ${relatedWaterIdSet.has(zone.id) ? "related" : ""} ${hasWaterRelation && !relatedWaterIdSet.has(zone.id) ? "relation-muted" : ""}`}
                   points={zone.polygon.map(([longitude, latitude]) => project(longitude, latitude).join(",")).join(" ")}
                   role="button"
                   tabIndex={0}
@@ -147,7 +217,7 @@ export function VillageMap({
                   }}>
                     <polyline className="home-water-line-hit" points={points} />
                     <polyline
-                      className={`home-water-line ${selectedSpatialId === line.id ? "active" : ""}`}
+                      className={`home-water-line ${selectedSpatialId === line.id ? "active" : ""} ${relatedWaterIdSet.has(line.id) ? "related" : ""} ${hasWaterRelation && !relatedWaterIdSet.has(line.id) ? "relation-muted" : ""}`}
                       points={points}
                       stroke={style.color}
                       strokeWidth={style.width}
@@ -161,14 +231,23 @@ export function VillageMap({
           {features.map((feature) => {
             const position = positionOnBasemap(feature.longitude, feature.latitude, geographic.bounds);
             return position
-              ? <MapMarker key={feature.id} feature={feature} active={feature.id === selectedId} onClick={() => onSelect(feature)} position={position} />
+              ? <MapMarker
+                  key={feature.id}
+                  feature={feature}
+                  active={feature.id === selectedId}
+                  related={relatedWaterIdSet.has(feature.id)}
+                  muted={hasWaterRelation && feature.featureType === MapFeatureType.WaterFacility && !relatedWaterIdSet.has(feature.id)}
+                  onClick={() => onSelect(feature)}
+                  position={position}
+                  mapScale={scale}
+                />
               : null;
           })}
         </div>
-        {zoomed ? (
+        {viewChanged ? (
           <button type="button" className="map-zoom-reset" onClick={reset}>复位视图 · {scale.toFixed(1)}×</button>
         ) : (
-          <span className="map-zoom-hint">滚轮缩放 · 双击复位</span>
+          <span className="map-zoom-hint">按住左键拖动 · 滚轮缩放 · 双击复位</span>
         )}
       </div>
       <div className="map-aerial-label"><strong>{geographic.title}</strong><span>{geographic.note}</span></div>

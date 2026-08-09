@@ -4,49 +4,48 @@ import { Box, LoaderCircle, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { MapDetailDrawer } from "@/components/map/MapDetailDrawer";
+import { initialMapFilters, mapFeatureTypeToFilterGroup, type MapFilters } from "@/components/map/MapFilterPanel";
 import { WaterSpatialDetail } from "@/components/map/WaterSpatialDetail";
-import type { SpatialFeature } from "@/types";
+import { WaterTopicNavigator } from "@/components/map/WaterTopicNavigator";
+import { MapFeatureType, type SpatialFeature } from "@/types";
+import { computeMapBubbleLayout, isMapScreenAnchor, type MapScreenAnchor } from "@/lib/mapBubble";
+import { fetchPlatformDataset } from "@/lib/platformData";
 import {
   FieldworkTopicRecord,
   TopicRecordPayload,
   WaterSpatialSelection,
   WaterSystemData,
+  WaterTopicMode,
   findWaterSelection,
   topicRecordsForFeature,
+  waterFeatureBranch,
   waterNodesToSpatialFeatures,
+  waterSelectionRelatedIds,
 } from "@/lib/spatialData";
 
 type GaussianState = "loading" | "ready" | "error";
 type RealMapPayload = { features?: SpatialFeature[] };
-type CesiumPointPayload = Pick<SpatialFeature, "id" | "title" | "featureType" | "longitude" | "latitude">;
-type ScreenAnchor = {
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  visible: boolean;
+type CesiumPointPayload = Pick<SpatialFeature, "id" | "title" | "featureType" | "longitude" | "latitude"> & {
+  waterSystemBranch?: SpatialFeature["waterSystemBranch"];
 };
-
 type SentState = { target: Window; signature: string };
 
-function validScreenAnchor(screen: unknown): screen is ScreenAnchor {
-  if (!screen || typeof screen !== "object") return false;
-  const value = screen as Partial<ScreenAnchor>;
-  return value.visible === true
-    && Number.isFinite(value.x)
-    && Number.isFinite(value.y)
-    && Number.isFinite(value.width)
-    && Number.isFinite(value.height);
-}
-
-export function GaussianHome() {
+export function GaussianHome({
+  filters = initialMapFilters,
+  waterTopicMode = "off",
+  onWaterTopicModeChange = () => undefined,
+}: {
+  filters?: MapFilters;
+  waterTopicMode?: WaterTopicMode;
+  onWaterTopicModeChange?: (mode: WaterTopicMode) => void;
+}) {
   const [state, setState] = useState<GaussianState>("loading");
   const [realFeatures, setRealFeatures] = useState<SpatialFeature[]>([]);
   const [waterSystem, setWaterSystem] = useState<WaterSystemData>();
   const [topicRecords, setTopicRecords] = useState<FieldworkTopicRecord[]>([]);
   const [selectedFeature, setSelectedFeature] = useState<SpatialFeature>();
   const [selectedSpatial, setSelectedSpatial] = useState<WaterSpatialSelection>();
-  const [selectionAnchor, setSelectionAnchor] = useState<ScreenAnchor>();
+  const [selectionAnchor, setSelectionAnchor] = useState<MapScreenAnchor>();
   const frameRef = useRef<HTMLIFrameElement>(null);
   const sentStateRef = useRef<SentState | undefined>(undefined);
   const selectedPointIdRef = useRef<string | undefined>(undefined);
@@ -63,20 +62,34 @@ export function GaussianHome() {
   const cesiumPoints = useMemo<CesiumPointPayload[]>(
     () => mapFeatures
       .filter((feature) => Number.isFinite(feature.longitude) && Number.isFinite(feature.latitude))
-      .map(({ id, title, featureType, longitude, latitude }) => ({
-        id,
-        title,
-        featureType,
-        longitude,
-        latitude,
+      .map((feature) => ({
+        id: feature.id,
+        title: feature.title,
+        featureType: feature.featureType,
+        longitude: feature.longitude,
+        latitude: feature.latitude,
+        waterSystemBranch: feature.featureType === MapFeatureType.WaterFacility
+          ? waterFeatureBranch(feature)
+          : undefined,
       })),
     [mapFeatures],
   );
+  const activeFilterGroups = useMemo(
+    () => Array.from(new Set(filters.types.map(mapFeatureTypeToFilterGroup))),
+    [filters.types],
+  );
+
+  const sendFeatureFilters = useCallback(() => {
+    frameRef.current?.contentWindow?.postMessage(
+      { type: "hongtang-gaussian-filter-groups-set", groups: activeFilterGroups },
+      window.location.origin,
+    );
+  }, [activeFilterGroups]);
 
   const sendSpatialData = useCallback(() => {
     const target = frameRef.current?.contentWindow;
     if (!target || !cesiumPoints.length) return;
-    const signature = `${cesiumPoints.map((point) => point.id).join("|")}:${waterSystem?.updatedAt ?? "no-water"}`;
+    const signature = `${cesiumPoints.map((point) => point.id).join("|")}:${waterSystem?.updatedAt ?? "no-water"}:${waterTopicMode}`;
     if (sentStateRef.current?.target === target && sentStateRef.current.signature === signature) return;
     target.postMessage(
       { type: "hongtang-gaussian-points-set", points: cesiumPoints },
@@ -88,30 +101,45 @@ export function GaussianHome() {
         window.location.origin,
       );
     }
+    target.postMessage(
+      { type: "hongtang-gaussian-water-topic-mode", mode: waterTopicMode },
+      window.location.origin,
+    );
     sentStateRef.current = { target, signature };
-  }, [cesiumPoints, waterSystem]);
+  }, [cesiumPoints, waterSystem, waterTopicMode]);
 
-  const clearSelection = useCallback(() => {
+  const clearLocalSelection = useCallback(() => {
     selectedPointIdRef.current = undefined;
     selectedSpatialIdRef.current = undefined;
     setSelectedFeature(undefined);
     setSelectedSpatial(undefined);
     setSelectionAnchor(undefined);
+  }, []);
+
+  const clearSelection = useCallback(() => {
+    clearLocalSelection();
     const target = frameRef.current?.contentWindow;
     target?.postMessage({ type: "hongtang-gaussian-point-clear" }, window.location.origin);
     target?.postMessage({ type: "hongtang-gaussian-spatial-clear" }, window.location.origin);
+    target?.postMessage({ type: "hongtang-gaussian-water-relation-set", ids: [] }, window.location.origin);
     target?.postMessage({ type: "hongtang-gaussian-detail-state", open: false }, window.location.origin);
-  }, []);
+  }, [clearLocalSelection]);
 
   useEffect(() => {
     let active = true;
     Promise.all([
-      fetch("/data/hongtang-real-map-features.json", { cache: "no-store" })
-        .then((response) => response.ok ? response.json() as Promise<RealMapPayload> : { features: [] }),
-      fetch("/data/hongtang-water-system.json", { cache: "no-store" })
-        .then((response) => response.ok ? response.json() as Promise<WaterSystemData> : undefined),
-      fetch("/data/hongtang-topic-records.json", { cache: "no-store" })
-        .then((response) => response.ok ? response.json() as Promise<TopicRecordPayload> : undefined),
+      fetchPlatformDataset<RealMapPayload>(
+        "hongtang-real-map-features",
+        "/data/hongtang-real-map-features.json",
+      ),
+      fetchPlatformDataset<WaterSystemData>(
+        "hongtang-water-system",
+        "/data/hongtang-water-system.json",
+      ),
+      fetchPlatformDataset<TopicRecordPayload>(
+        "hongtang-topic-records",
+        "/data/hongtang-topic-records.json",
+      ),
     ])
       .then(([mapPayload, waterPayload, recordPayload]) => {
         if (!active) return;
@@ -135,6 +163,10 @@ export function GaussianHome() {
   }, [sendSpatialData, state]);
 
   useEffect(() => {
+    if (state === "ready") sendFeatureFilters();
+  }, [sendFeatureFilters, state]);
+
+  useEffect(() => {
     let poller: number | undefined;
     const receiveViewerState = (event: MessageEvent) => {
       if (event.origin !== window.location.origin || event.source !== frameRef.current?.contentWindow) return;
@@ -147,15 +179,35 @@ export function GaussianHome() {
         }
       }
       if (event.data?.type === "hongtang-gaussian-error") setState("error");
+      if (event.data?.type === "hongtang-gaussian-selection-clear") {
+        clearLocalSelection();
+        frameRef.current?.contentWindow?.postMessage(
+          { type: "hongtang-gaussian-detail-state", open: false },
+          window.location.origin,
+        );
+      }
       const selectedId = event.data?.id ?? event.data?.detail;
       if (event.data?.type === "hongtang-gaussian-point-selected" && typeof selectedId === "string") {
+        const waterSelection = findWaterSelection(waterSystem, selectedId);
+        if (waterSelection?.type === "node") {
+          selectedPointIdRef.current = selectedId;
+          selectedSpatialIdRef.current = undefined;
+          setSelectedSpatial(waterSelection);
+          setSelectedFeature(undefined);
+          setSelectionAnchor(isMapScreenAnchor(event.data?.screen) ? event.data.screen : undefined);
+          frameRef.current?.contentWindow?.postMessage(
+            { type: "hongtang-gaussian-detail-state", open: true },
+            window.location.origin,
+          );
+          return;
+        }
         const feature = featuresById.get(selectedId);
         if (!feature) return;
         selectedPointIdRef.current = selectedId;
         selectedSpatialIdRef.current = undefined;
         setSelectedFeature(feature);
         setSelectedSpatial(undefined);
-        setSelectionAnchor(validScreenAnchor(event.data?.screen) ? event.data.screen : undefined);
+        setSelectionAnchor(isMapScreenAnchor(event.data?.screen) ? event.data.screen : undefined);
         frameRef.current?.contentWindow?.postMessage(
           { type: "hongtang-gaussian-detail-state", open: true },
           window.location.origin,
@@ -168,7 +220,7 @@ export function GaussianHome() {
         selectedPointIdRef.current = undefined;
         setSelectedSpatial(selection);
         setSelectedFeature(undefined);
-        setSelectionAnchor(validScreenAnchor(event.data?.screen) ? event.data.screen : undefined);
+        setSelectionAnchor(isMapScreenAnchor(event.data?.screen) ? event.data.screen : undefined);
         frameRef.current?.contentWindow?.postMessage(
           { type: "hongtang-gaussian-detail-state", open: true },
           window.location.origin,
@@ -179,14 +231,14 @@ export function GaussianHome() {
         && typeof selectedId === "string"
         && selectedId === selectedPointIdRef.current
       ) {
-        setSelectionAnchor(validScreenAnchor(event.data) ? event.data : undefined);
+        setSelectionAnchor(isMapScreenAnchor(event.data) ? event.data : undefined);
       }
       if (
         event.data?.type === "hongtang-gaussian-spatial-screen"
         && typeof selectedId === "string"
         && selectedId === selectedSpatialIdRef.current
       ) {
-        setSelectionAnchor(validScreenAnchor(event.data) ? event.data : undefined);
+        setSelectionAnchor(isMapScreenAnchor(event.data) ? event.data : undefined);
       }
     };
     const requestViewerState = () => {
@@ -207,9 +259,20 @@ export function GaussianHome() {
       if (poller !== undefined) window.clearInterval(poller);
       window.clearTimeout(timeout);
     };
-  }, [featuresById, sendSpatialData, waterSystem]);
+  }, [clearLocalSelection, featuresById, sendSpatialData, waterSystem]);
 
   const hasSelection = Boolean(selectedFeature || selectedSpatial);
+  const relatedWaterIds = useMemo(
+    () => selectedSpatial && waterSystem ? waterSelectionRelatedIds(selectedSpatial, waterSystem) : [],
+    [selectedSpatial, waterSystem],
+  );
+  useEffect(() => {
+    if (state !== "ready") return;
+    frameRef.current?.contentWindow?.postMessage(
+      { type: "hongtang-gaussian-water-relation-set", ids: relatedWaterIds },
+      window.location.origin,
+    );
+  }, [relatedWaterIds, state]);
   useEffect(() => {
     if (!hasSelection) return;
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -219,23 +282,10 @@ export function GaussianHome() {
     return () => window.removeEventListener("keydown", closeOnEscape);
   }, [clearSelection, hasSelection]);
 
-  const bubbleLayout = useMemo(() => {
-    if (!hasSelection || !selectionAnchor?.visible) return undefined;
-    const margin = 12;
-    const gap = 22;
-    const width = Math.min(380, selectionAnchor.width - margin * 2);
-    const height = Math.min(560, Math.max(180, selectionAnchor.height - margin * 2));
-    if (width < 180 || height < 120) return undefined;
-    const side = selectionAnchor.x + gap + width <= selectionAnchor.width - margin ? "right" : "left";
-    const desiredLeft = side === "right"
-      ? selectionAnchor.x + gap
-      : selectionAnchor.x - gap - width;
-    const left = Math.max(margin, Math.min(desiredLeft, selectionAnchor.width - width - margin));
-    const desiredTop = selectionAnchor.y - 72;
-    const top = Math.max(margin, Math.min(desiredTop, selectionAnchor.height - height - margin));
-    const arrowY = Math.max(22, Math.min(selectionAnchor.y - top, height - 22));
-    return { side, left, top, width, height, arrowY };
-  }, [hasSelection, selectionAnchor]);
+  const bubbleLayout = useMemo(
+    () => hasSelection ? computeMapBubbleLayout(selectionAnchor) : undefined,
+    [hasSelection, selectionAnchor],
+  );
   const detailStyle = bubbleLayout ? ({
     left: bubbleLayout.left,
     top: bubbleLayout.top,
@@ -243,6 +293,16 @@ export function GaussianHome() {
     height: bubbleLayout.height,
     "--bubble-arrow-y": `${bubbleLayout.arrowY}px`,
   } as CSSProperties & Record<"--bubble-arrow-y", string>) : undefined;
+  const changeWaterTopicMode = (next: WaterTopicMode) => {
+    clearSelection();
+    onWaterTopicModeChange(next);
+  };
+  const selectRelatedWaterItem = (id: string) => {
+    frameRef.current?.contentWindow?.postMessage(
+      { type: "hongtang-gaussian-water-select", id },
+      window.location.origin,
+    );
+  };
 
   return (
     <main
@@ -252,7 +312,9 @@ export function GaussianHome() {
       data-real-point-count={realFeatures.length}
       data-map-element-count={mapFeatures.length + (waterSystem?.lines.length ?? 0) + (waterSystem?.zones.length ?? 0)}
       data-shared-spatial-data="points-lines-polygons"
+      data-water-topic-mode={waterTopicMode}
     >
+      <WaterTopicNavigator data={waterSystem} mode={waterTopicMode} onModeChange={changeWaterTopicMode} />
       <iframe
         id="hongtang-gaussian-frame"
         ref={frameRef}
@@ -261,9 +323,10 @@ export function GaussianHome() {
           setState("loading");
           clearSelection();
           sendSpatialData();
+          sendFeatureFilters();
         }}
         className="gaussian-home-frame"
-        src="/cesium-viewer/index.html?v=shared-spatial-v146"
+        src="/cesium-viewer/index.html?v=shared-filter-v153"
         title="红塘村三维地形、实景模型和专题要素"
         allow="fullscreen"
         allowFullScreen
@@ -289,7 +352,7 @@ export function GaussianHome() {
       ) : null}
       {hasSelection && bubbleLayout ? (
         <div
-          className="gaussian-home-point-detail"
+          className="map-selection-bubble"
           data-bubble-side={bubbleLayout.side}
           data-point-anchor="true"
           style={detailStyle}
@@ -302,7 +365,7 @@ export function GaussianHome() {
               variant="gaussian"
             />
           ) : selectedSpatial && waterSystem ? (
-            <WaterSpatialDetail selection={selectedSpatial} data={waterSystem} onClose={clearSelection} variant="gaussian" />
+            <WaterSpatialDetail selection={selectedSpatial} data={waterSystem} onClose={clearSelection} onSelectRelated={selectRelatedWaterItem} variant="gaussian" />
           ) : null}
         </div>
       ) : null}

@@ -4,6 +4,7 @@
 # Next.js
 /.next/
 /out/
+/public/local-photos/
 
 # production
 /build/
@@ -22,6 +23,8 @@ pnpm-debug.log*
 .vercel/
 .DS_Store
 Thumbs.db
+__pycache__/
+*.pyc
 *.tsbuildinfo
 next-env.d.ts
 /.qa/

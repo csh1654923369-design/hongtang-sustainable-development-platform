@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       activities: {
@@ -645,6 +670,30 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      platform_datasets: {
+        Row: {
+          is_public: boolean
+          payload: Json
+          slug: string
+          source_version: string | null
+          updated_at: string
+        }
+        Insert: {
+          is_public?: boolean
+          payload: Json
+          slug: string
+          source_version?: string | null
+          updated_at?: string
+        }
+        Update: {
+          is_public?: boolean
+          payload?: Json
+          slug?: string
+          source_version?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
@@ -1430,6 +1479,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       activity_status: ["open", "full", "ended"],
@@ -1481,4 +1533,3 @@ export const Constants = {
     },
   },
 } as const
-

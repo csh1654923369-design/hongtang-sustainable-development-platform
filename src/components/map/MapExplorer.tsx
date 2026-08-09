@@ -1,47 +1,71 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Image as ImageIcon, Layers3, ListFilter } from "lucide-react";
+import type { CSSProperties } from "react";
+import { Image as ImageIcon, Layers3, ListFilter, Map as MapIcon } from "lucide-react";
 import { MapFeatureType, SpatialFeature } from "@/types";
 import { MapFilterPanel, initialMapFilters, MapFilters, verifiedMapFeatureTypes } from "@/components/map/MapFilterPanel";
-import { VillageBasemap, VillageMap } from "@/components/map/VillageMap";
+import { AmapVillageMap, type VillageOverlayMode } from "@/components/map/AmapVillageMap";
 import { MapDetailDrawer } from "@/components/map/MapDetailDrawer";
 import { WaterSpatialDetail } from "@/components/map/WaterSpatialDetail";
-import { EmptyState } from "@/components/common/EmptyState";
+import { WaterTopicNavigator } from "@/components/map/WaterTopicNavigator";
 import {
   FieldworkTopicRecord,
   TopicRecordPayload,
   WaterSpatialSelection,
   WaterSystemData,
+  WaterTopicMode,
+  filterWaterSystem,
+  findWaterSelection,
   topicRecordsForFeature,
+  waterFeatureBranch,
+  waterMatchesTopicMode,
   waterNodesToSpatialFeatures,
+  waterSelectionRelatedIds,
 } from "@/lib/spatialData";
+import { computeMapBubbleLayout, type MapScreenAnchor } from "@/lib/mapBubble";
+import { fetchPlatformDataset } from "@/lib/platformData";
 
-export function MapExplorer() {
-  const [filters, setFilters] = useState<MapFilters>(initialMapFilters);
+export function MapExplorer({
+  filters: controlledFilters,
+  onFiltersChange,
+  showFilterControls = true,
+  waterTopicMode = "off",
+  onWaterTopicModeChange = () => undefined,
+}: {
+  filters?: MapFilters;
+  onFiltersChange?: (filters: MapFilters) => void;
+  showFilterControls?: boolean;
+  waterTopicMode?: WaterTopicMode;
+  onWaterTopicModeChange?: (mode: WaterTopicMode) => void;
+}) {
+  const [localFilters, setLocalFilters] = useState<MapFilters>(initialMapFilters);
+  const filters = controlledFilters ?? localFilters;
+  const updateFilters = onFiltersChange ?? setLocalFilters;
   const [selected, setSelected] = useState<SpatialFeature>();
   const [waterSelection, setWaterSelection] = useState<WaterSpatialSelection>();
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [basemap, setBasemap] = useState<VillageBasemap>("handdrawn");
+  const [overlayMode, setOverlayMode] = useState<VillageOverlayMode>("aerial");
   const [realFeatures, setRealFeatures] = useState<SpatialFeature[]>([]);
   const [waterSystem, setWaterSystem] = useState<WaterSystemData>();
   const [topicRecords, setTopicRecords] = useState<FieldworkTopicRecord[]>([]);
+  const [selectionAnchor, setSelectionAnchor] = useState<MapScreenAnchor>();
 
   useEffect(() => {
     let active = true;
     Promise.all([
-      fetch("/data/hongtang-real-map-features.json", { cache: "no-store" }).then((response) => {
-        if (!response.ok) throw new Error(`Unable to load map data: ${response.status}`);
-        return response.json() as Promise<{ features: SpatialFeature[] }>;
-      }),
-      fetch("/data/hongtang-water-system.json", { cache: "no-store" }).then((response) => {
-        if (!response.ok) throw new Error(`Unable to load water data: ${response.status}`);
-        return response.json() as Promise<WaterSystemData>;
-      }),
-      fetch("/data/hongtang-topic-records.json", { cache: "no-store" }).then((response) => {
-        if (!response.ok) throw new Error(`Unable to load topic records: ${response.status}`);
-        return response.json() as Promise<TopicRecordPayload>;
-      }),
+      fetchPlatformDataset<{ features: SpatialFeature[] }>(
+        "hongtang-real-map-features",
+        "/data/hongtang-real-map-features.json",
+      ),
+      fetchPlatformDataset<WaterSystemData>(
+        "hongtang-water-system",
+        "/data/hongtang-water-system.json",
+      ),
+      fetchPlatformDataset<TopicRecordPayload>(
+        "hongtang-topic-records",
+        "/data/hongtang-topic-records.json",
+      ),
     ])
       .then(([mapPayload, waterPayload, recordPayload]) => {
         if (!active) return;
@@ -51,7 +75,6 @@ export function MapExplorer() {
         setRealFeatures(verified);
         setWaterSystem(waterPayload);
         setTopicRecords(recordPayload.records ?? []);
-        setSelected(verified[0]);
       })
       .catch(() => {
         if (!active) return;
@@ -68,6 +91,11 @@ export function MapExplorer() {
     () => [...realFeatures, ...waterNodesToSpatialFeatures(waterSystem)],
     [realFeatures, waterSystem],
   );
+  const topicWaterSystem = useMemo(
+    () => filterWaterSystem(waterSystem, waterTopicMode),
+    [waterSystem, waterTopicMode],
+  );
+  const waterTopicActive = waterTopicMode !== "off";
   const availableTypes = useMemo(
     () => verifiedMapFeatureTypes.filter((type) =>
       allFeatures.some((feature) => feature.featureType === type),
@@ -85,65 +113,134 @@ export function MapExplorer() {
     return result;
   }, [allFeatures, waterSystem]);
   const visible = useMemo(
-    () => allFeatures.filter((feature) => filters.types.includes(feature.featureType)),
-    [allFeatures, filters],
+    () => waterTopicActive
+      ? allFeatures.filter((feature) =>
+          feature.featureType === MapFeatureType.WaterFacility
+          && waterMatchesTopicMode(waterFeatureBranch(feature), waterTopicMode),
+        )
+      : allFeatures.filter((feature) => filters.types.includes(feature.featureType)),
+    [allFeatures, filters, waterTopicActive, waterTopicMode],
   );
-  const showWaterSystem = filters.types.includes(MapFeatureType.WaterFacility);
+  const showWaterSystem = waterTopicActive || filters.types.includes(MapFeatureType.WaterFacility);
+  const visibleWaterSystem = waterTopicActive ? topicWaterSystem : waterSystem;
   const visibleObjectCount = visible.length + (showWaterSystem
-    ? (waterSystem?.lines.length ?? 0) + (waterSystem?.zones.length ?? 0)
+    ? (visibleWaterSystem?.lines.length ?? 0) + (visibleWaterSystem?.zones.length ?? 0)
     : 0);
-  const resetFilters = () => setFilters({ types: [...availableTypes] });
+  const resetFilters = () => updateFilters({ types: [...availableTypes] });
   const changeFilters = (next: MapFilters) => {
-    setFilters(next);
+    updateFilters(next);
     if (!next.types.includes(MapFeatureType.WaterFacility)) setWaterSelection(undefined);
+    if (selected && !next.types.includes(selected.featureType)) setSelected(undefined);
   };
   const selectFeature = (feature: SpatialFeature) => {
+    const waterNode = feature.featureType === MapFeatureType.WaterFacility
+      ? findWaterSelection(waterSystem, feature.id)
+      : undefined;
+    if (waterNode?.type === "node") {
+      setWaterSelection(waterNode);
+      setSelected(undefined);
+      setFiltersOpen(false);
+      return;
+    }
     setSelected(feature);
     setWaterSelection(undefined);
+    setFiltersOpen(false);
   };
   const selectSpatial = (selection: WaterSpatialSelection) => {
     setWaterSelection(selection);
     setSelected(undefined);
+    setFiltersOpen(false);
   };
+  const clearSelection = () => {
+    setSelected(undefined);
+    setWaterSelection(undefined);
+    setSelectionAnchor(undefined);
+  };
+  const hasSelection = Boolean(selected || waterSelection);
+  const relatedWaterIds = useMemo(
+    () => waterSelection && waterSystem ? waterSelectionRelatedIds(waterSelection, waterSystem) : [],
+    [waterSelection, waterSystem],
+  );
+  const changeWaterTopicMode = (next: WaterTopicMode) => {
+    clearSelection();
+    setFiltersOpen(false);
+    if (next !== "off") setOverlayMode("aerial");
+    onWaterTopicModeChange(next);
+  };
+  const selectRelatedWaterItem = (id: string) => {
+    const next = findWaterSelection(waterSystem, id);
+    if (next) selectSpatial(next);
+  };
+  const bubbleLayout = useMemo(
+    () => hasSelection ? computeMapBubbleLayout(selectionAnchor) : undefined,
+    [hasSelection, selectionAnchor],
+  );
+  const detailStyle = bubbleLayout ? ({
+    left: bubbleLayout.left,
+    top: bubbleLayout.top,
+    width: bubbleLayout.width,
+    height: bubbleLayout.height,
+    "--bubble-arrow-y": `${bubbleLayout.arrowY}px`,
+  } as CSSProperties & Record<"--bubble-arrow-y", string>) : undefined;
 
   return (
-    <div className="map-explorer" data-shared-spatial-data="points-lines-polygons">
-      <div className={`map-filter-mobile ${filtersOpen ? "open" : ""}`}>
-        <MapFilterPanel filters={filters} availableTypes={availableTypes} counts={counts} onChange={changeFilters} onReset={resetFilters} />
-      </div>
-      <MapFilterPanel filters={filters} availableTypes={availableTypes} counts={counts} onChange={changeFilters} onReset={resetFilters} />
+    <div className={`map-explorer${waterTopicActive ? " water-topic-active" : ""}${hasSelection ? " detail-open" : ""}`} data-shared-spatial-data="points-lines-polygons" data-water-topic-mode={waterTopicMode}>
+      {showFilterControls ? (
+        <>
+          <div className={`map-filter-mobile ${filtersOpen ? "open" : ""}`}>
+            <MapFilterPanel filters={filters} availableTypes={availableTypes} counts={counts} onChange={changeFilters} onReset={resetFilters} onClose={() => setFiltersOpen(false)} />
+          </div>
+          <MapFilterPanel filters={filters} availableTypes={availableTypes} counts={counts} onChange={changeFilters} onReset={resetFilters} />
+        </>
+      ) : null}
       <div className="map-canvas-wrap">
-        <div className="map-mobile-toolbar">
-          <button className="button button-secondary" onClick={() => setFiltersOpen((value) => !value)}><ListFilter size={17} />筛选要素</button>
-          <span>{visibleObjectCount} 个要素</span>
+        <WaterTopicNavigator data={waterSystem} mode={waterTopicMode} onModeChange={changeWaterTopicMode} />
+        {showFilterControls ? (
+          <div className="map-mobile-toolbar">
+            <button className="button button-secondary" onClick={() => setFiltersOpen((value) => !value)}><ListFilter size={17} />专题</button>
+            <span>{visibleObjectCount} 个要素</span>
+          </div>
+        ) : null}
+        <div className="map-basemap-control" aria-label="切换高德底图覆盖层">
+          <button className={overlayMode === "none" ? "active" : ""} onClick={() => setOverlayMode("none")} aria-pressed={overlayMode === "none"}><MapIcon size={16} />高德底图</button>
+          <button className={overlayMode === "aerial" ? "active" : ""} onClick={() => setOverlayMode("aerial")} aria-pressed={overlayMode === "aerial"}><ImageIcon size={16} />无人机影像</button>
+          <button className={overlayMode === "handdrawn" ? "active" : ""} onClick={() => setOverlayMode("handdrawn")} aria-pressed={overlayMode === "handdrawn"}><Layers3 size={16} />手绘图</button>
         </div>
-        <div className="map-basemap-control" aria-label="切换地图底图">
-          <button className={basemap === "aerial" ? "active" : ""} onClick={() => setBasemap("aerial")} aria-pressed={basemap === "aerial"}><ImageIcon size={16} />无人机影像</button>
-          <button className={basemap === "handdrawn" ? "active" : ""} onClick={() => setBasemap("handdrawn")} aria-pressed={basemap === "handdrawn"}><Layers3 size={16} />手绘图</button>
-        </div>
-        {visibleObjectCount
-          ? (
-            <VillageMap
-              features={visible}
-              selectedId={selected?.id}
-              onSelect={selectFeature}
-              basemap={basemap}
-              waterSystem={showWaterSystem ? waterSystem : undefined}
-              selectedSpatialId={waterSelection?.item.id}
-              onSelectSpatial={selectSpatial}
-            />
-          )
-          : <EmptyState title="没有符合条件的地图要素" description="请调整筛选条件或重新全选专题类型。" />}
-      </div>
-      {waterSelection && waterSystem ? (
-        <WaterSpatialDetail selection={waterSelection} data={waterSystem} onClose={() => setWaterSelection(undefined)} />
-      ) : (
-        <MapDetailDrawer
-          feature={selected && visible.some((item) => item.id === selected.id) ? selected : undefined}
-          records={topicRecordsForFeature(topicRecords, selected?.id)}
-          onClose={() => setSelected(undefined)}
+        <AmapVillageMap
+          features={visible}
+          selectedId={selected?.id ?? (waterSelection?.type === "node" ? waterSelection.item.id : undefined)}
+          onSelect={selectFeature}
+          overlayMode={overlayMode}
+          waterSystem={showWaterSystem ? visibleWaterSystem : undefined}
+          selectedSpatialId={waterSelection?.item.id}
+          relatedWaterIds={relatedWaterIds}
+          onSelectSpatial={selectSpatial}
+          onSelectionAnchorChange={setSelectionAnchor}
+          onBackgroundClick={clearSelection}
         />
-      )}
+        {!visibleObjectCount ? (
+          <div className="map-empty-overlay"><strong>当前没有显示要素</strong><span>请在“专题”中重新勾选。</span></div>
+        ) : null}
+        {hasSelection && bubbleLayout ? (
+          <div
+            className="map-selection-bubble"
+            data-bubble-side={bubbleLayout.side}
+            data-point-anchor="true"
+            style={detailStyle}
+          >
+            {waterSelection && waterSystem ? (
+              <WaterSpatialDetail selection={waterSelection} data={waterSystem} onClose={clearSelection} onSelectRelated={selectRelatedWaterItem} />
+            ) : selected ? (
+              <MapDetailDrawer
+                key={selected.id}
+                feature={selected}
+                records={topicRecordsForFeature(topicRecords, selected.id)}
+                onClose={clearSelection}
+              />
+            ) : null}
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }

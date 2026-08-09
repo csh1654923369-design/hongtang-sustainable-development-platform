@@ -117,6 +117,8 @@
     .map-pin.map-dot.is-active .map-dot-core {
       box-shadow: 0 0 0 3px rgba(255, 255, 255, .82), 0 2px 7px rgba(0, 0, 0, .5);
     }
+    .map-pin.is-related:not(.is-active) { filter: drop-shadow(0 0 7px rgba(121, 213, 239, .96)); }
+    .map-pin.relation-muted { opacity: .2; }
     .map-pin.map-dot .map-pin-label { bottom: calc(100% + 8px); }
     .point-filter {
       position: fixed;
@@ -186,6 +188,10 @@
       font-style: normal;
       text-align: right;
     }
+    .point-filter-toggle { display: none; }
+    .point-filter-close { display: none; }
+    body.water-topic-active .point-filter,
+    body.water-topic-active .point-filter-toggle { display: none !important; }
     .scene-tools {
       position: fixed;
       z-index: 25;
@@ -270,12 +276,48 @@
     .viewer-status.ready { display: none; }
     .viewer-status.error { color: #ffd7cd; border-color: rgba(255, 138, 107, .5); }
     @media (max-width: 680px) {
-      .point-filter { top: 10px; left: 10px; width: min(210px, calc(100vw - 78px)); }
+      .point-filter-toggle {
+        position: fixed;
+        z-index: 21;
+        top: 66px;
+        left: 12px;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        min-height: 40px;
+        padding: 7px 11px;
+        color: #203229;
+        border: 1px solid rgba(255,255,255,.55);
+        border-radius: 10px;
+        background: rgba(255,253,249,.94);
+        box-shadow: 0 5px 16px rgba(0,0,0,.18);
+        font-size: 12px;
+        font-weight: 750;
+        cursor: pointer;
+      }
+      .point-filter-toggle span { color: #5f6f66; font-size: 11px; font-weight: 600; }
+      .point-filter {
+        top: 116px;
+        left: 8px;
+        width: min(240px, calc(100vw - 16px));
+        max-height: calc(100vh - 124px);
+        overflow-y: auto;
+        transform: translateX(calc(-100% - 16px));
+        transition: transform .2s ease;
+      }
+      .point-filter.open { transform: translateX(0); }
       .point-filter strong { font-size: 13px; }
+      .point-filter-close { display: inline-flex; }
       .scene-tools { right: 10px; bottom: 32px; }
       body.detail-open .scene-tools { right: 10px; }
       .viewer-status { left: 10px; bottom: 32px; max-width: calc(100vw - 74px); }
     }
+  </style>
+  <style id="home-overlay-clearance">
+    .point-filter { top: 86px; }
+    @media (max-width: 680px) { .point-filter { top: 116px; } }
+    /* 正式平台由父页面提供唯一且持久的2D/3D共用筛选组件。 */
+    #pointFilterPanel, #pointFilterToggle { display: none !important; }
   </style>
 </head>
 <body
@@ -295,6 +337,7 @@
   data-spatial-vector-count="0"
   data-water-zone-count="0"
   data-water-line-count="0"
+  data-water-topic-mode="off"
   data-visible-point-count="0"
   data-point-initialization-count="0"
   data-left-drag-action="horizontal-pan"
@@ -331,12 +374,18 @@
   <div id="cesiumContainer" aria-label="红塘村三维地形、实景模型和地点"></div>
   <div class="point-overlay" id="pointOverlay" aria-label="三维场景高清地点图钉"></div>
 
-  <div class="point-filter" aria-label="地点筛选">
+  <button class="point-filter-toggle" id="pointFilterToggle" type="button" aria-controls="pointFilterPanel" aria-expanded="false">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>
+    筛选要素 <span id="pointFilterToggleCount">0 个</span>
+  </button>
+
+  <div class="point-filter" id="pointFilterPanel" aria-label="要素筛选">
     <div class="point-filter-head">
       <strong id="pointCount">正在准备地点</strong>
       <span class="point-filter-actions">
         <button id="selectAllPointTypes" type="button">全选</button>
         <button id="clearPointTypes" type="button">清空</button>
+        <button class="point-filter-close" id="closePointFilter" type="button">完成</button>
       </span>
     </div>
     <div class="point-filter-list" id="pointFilter" role="group" aria-label="选择要显示的地点类型"></div>
@@ -386,6 +435,10 @@
       const statusElement = document.getElementById("viewerStatus");
       const countElement = document.getElementById("pointCount");
       const filterElement = document.getElementById("pointFilter");
+      const pointFilterPanel = document.getElementById("pointFilterPanel");
+      const pointFilterToggle = document.getElementById("pointFilterToggle");
+      const pointFilterToggleCount = document.getElementById("pointFilterToggleCount");
+      const closePointFilterButton = document.getElementById("closePointFilter");
       const selectAllPointTypesButton = document.getElementById("selectAllPointTypes");
       const clearPointTypesButton = document.getElementById("clearPointTypes");
       const settingsPanel = document.getElementById("settingsPanel");
@@ -409,13 +462,21 @@
       let pointPayload = [];
       let pointPayloadSignature = "";
       let waterSystemPayload;
+      let waterTopicMode = "off";
+      let relatedWaterIds = new Set();
       let lastSelectedSpatialScreenSignature = "";
       let activePointGroups = new Set();
+      let externalPointGroups = null;
       let viewerReady = false;
       let viewerFailureMessage = "";
       let terrainReady = false;
       let modelReady = false;
       let wheelLocked = false;
+
+      const setPointFilterOpen = (open) => {
+        pointFilterPanel.classList.toggle("open", open);
+        pointFilterToggle.setAttribute("aria-expanded", String(open));
+      };
       let lastSelectedScreenSignature = "";
 
       const postToParent = (payload) => {
@@ -515,7 +576,8 @@
         marker.dataset.pointGroup = group;
         const symbolName = pinSymbolName(point);
         marker.dataset.pinSymbol = symbolName;
-        marker.setAttribute("aria-label", `查看${point.title || "地点"}`);
+        const markerLabel = group === "research" ? "村景记录" : point.title || "地点";
+        marker.setAttribute("aria-label", `查看${markerLabel}`);
         marker.style.setProperty("--pin-color", color);
         const visual = group === "research"
           ? '<span class="map-dot-core" aria-hidden="true"></span>'
@@ -526,7 +588,7 @@
             </svg>`;
         marker.innerHTML = `${visual}<span class="map-pin-label"></span>`;
 
-        marker.querySelector(".map-pin-label").textContent = point.title || "地点";
+        marker.querySelector(".map-pin-label").textContent = markerLabel;
         marker.addEventListener("mouseenter", () => setHoveredPoint(point.id));
         marker.addEventListener("mouseleave", () => setHoveredPoint(undefined));
         marker.addEventListener("focus", () => setHoveredPoint(point.id));
@@ -773,16 +835,21 @@
         if (!entry) return;
         const active = selectedPointId === id;
         const hovered = hoveredPointId === id;
+        const related = relatedWaterIds.has(id);
+        const relationMuted = relatedWaterIds.size > 0 && entry.group === "water" && !related;
         entry.emphasisScale = entry.group === "research"
           ? active ? 2 : hovered ? 1.45 : 1
-          : active ? 1.35 : hovered ? 1.18 : 1;
+          : active ? 1.35 : hovered ? 1.18 : related ? 1.16 : 1;
         entry.marker.classList.toggle("is-active", active);
         entry.marker.classList.toggle("is-hovered", hovered);
+        entry.marker.classList.toggle("is-related", related);
+        entry.marker.classList.toggle("relation-muted", relationMuted);
         updatePointOverlay();
       };
 
       const selectPoint = (id, notify = true) => {
         if (!pointsById.has(id)) return;
+        if (window.matchMedia("(max-width: 680px)").matches) setPointFilterOpen(false);
         clearSpatial(false);
         const previous = selectedPointId;
         selectedPointId = id;
@@ -848,11 +915,13 @@
         const entry = spatialEntities.get(id);
         if (!entry) return;
         const active = selectedSpatialId === id;
+        const related = relatedWaterIds.has(id);
+        const muted = relatedWaterIds.size > 0 && !related;
         if (entry.type === "zone") {
-          entry.entity.polygon.material = Cesium.Color.fromCssColorString("#39758a").withAlpha(active ? .42 : .18);
+          entry.entity.polygon.material = Cesium.Color.fromCssColorString("#39758a").withAlpha(active ? .46 : related ? .32 : muted ? .05 : .18);
         } else {
-          entry.entity.polyline.width = active ? entry.baseWidth + 2.4 : entry.baseWidth;
-          entry.entity.polyline.material = Cesium.Color.fromCssColorString(entry.color).withAlpha(active ? 1 : .94);
+          entry.entity.polyline.width = active ? entry.baseWidth + 2.4 : related ? entry.baseWidth + 1.2 : entry.baseWidth;
+          entry.entity.polyline.material = Cesium.Color.fromCssColorString(entry.color).withAlpha(active ? 1 : related ? 1 : muted ? .16 : .94);
         }
       };
 
@@ -896,9 +965,30 @@
         viewer?.scene.requestRender();
       };
 
+      const focusSpatial = async (id) => {
+        const entry = spatialEntities.get(id);
+        if (!entry || !viewer) return;
+        const [longitude, latitude] = entry.anchorDegrees;
+        const groundHeight = await terrainHeightAt(longitude, latitude);
+        const target = Cesium.Cartesian3.fromDegrees(longitude, latitude, groundHeight + 3);
+        body.dataset.lastCameraAction = "spatial-focus-animation";
+        viewer.camera.flyToBoundingSphere(
+          new Cesium.BoundingSphere(target, 1),
+          {
+            offset: new Cesium.HeadingPitchRange(
+              0,
+              Cesium.Math.toRadians(-58),
+              entry.type === "zone" ? 680 : 520,
+            ),
+            duration: .9,
+          },
+        );
+      };
+
       const selectSpatial = (id, clickPosition) => {
         const entry = spatialEntities.get(id);
         if (!entry) return;
+        if (window.matchMedia("(max-width: 680px)").matches) setPointFilterOpen(false);
         clearPoint(false);
         const previous = selectedSpatialId;
         selectedSpatialId = id;
@@ -921,6 +1011,7 @@
           } : { visible: false },
         });
         viewer.scene.requestRender();
+        void focusSpatial(id);
       };
 
       const setSpatialLayers = (data) => {
@@ -979,6 +1070,8 @@
           register(zone.id, { entity, type: "zone", item: zone, anchorDegrees: spatialCenter(zone.polygon) });
         });
         const lineStyle = {
+          "supply-main": { color: "#176d91", width: 5 },
+          "supply-branch": { color: "#45a7c4", width: 3.8 },
           "main-drain": { color: "#2f7fa8", width: 4.2 },
           outlet: { color: "#1d4e89", width: 5 },
           "branch-drain": { color: "#6ba6c4", width: 3.2 },
@@ -1233,24 +1326,47 @@
 
       const applyPointFilter = () => {
         let visibleCount = 0;
-        pointEntities.forEach((entry) => {
-          const visible = activePointGroups.has(entry.group);
+        const topicActive = waterTopicMode !== "off";
+        const matchesMode = (system) => waterTopicMode === "overview" || system === "both" || system === waterTopicMode;
+        const nodeSystems = new Map((waterSystemPayload?.nodes || []).map((node) => [node.id, node.system || "both"]));
+        pointEntities.forEach((entry, id) => {
+          const waterSystemBranch = pointsById.get(id)?.waterSystemBranch || nodeSystems.get(id) || "both";
+          const visible = topicActive
+            ? entry.group === "water" && matchesMode(waterSystemBranch)
+            : activePointGroups.has(entry.group);
           entry.visible = visible;
           entry.entity.show = visible;
           if (!visible) entry.marker.hidden = true;
           if (visible) visibleCount += 1;
         });
-        const waterVisible = activePointGroups.has("water");
+        const waterVisible = topicActive || activePointGroups.has("water");
         spatialEntities.forEach((entry) => {
-          entry.visible = waterVisible;
-          entry.entity.show = waterVisible;
-          if (waterVisible) visibleCount += 1;
+          const visible = waterVisible && (!topicActive || matchesMode(entry.item.system || "both"));
+          entry.visible = visible;
+          entry.entity.show = visible;
+          if (visible) visibleCount += 1;
         });
-        if (!waterVisible && selectedSpatialId) clearSpatial();
+        if ((!waterVisible || (selectedSpatialId && !spatialEntities.get(selectedSpatialId)?.visible)) && selectedSpatialId) clearSpatial();
+        if (selectedPointId && !pointEntities.get(selectedPointId)?.visible) clearPoint();
         body.dataset.visiblePointCount = String(visibleCount);
         body.dataset.selectedPointTypes = Array.from(activePointGroups).join(",");
         countElement.textContent = `${visibleCount}/${pointEntities.size + spatialEntities.size}个要素`;
+        pointFilterToggleCount.textContent = `${visibleCount} 个`;
         updatePointOverlay();
+        viewer?.scene.requestRender();
+      };
+
+      const setWaterTopicMode = (mode) => {
+        waterTopicMode = ["overview", "supply", "drainage"].includes(mode) ? mode : "off";
+        body.dataset.waterTopicMode = waterTopicMode;
+        body.classList.toggle("water-topic-active", waterTopicMode !== "off");
+        applyPointFilter();
+      };
+
+      const setWaterRelations = (ids) => {
+        relatedWaterIds = new Set(Array.isArray(ids) ? ids.filter((id) => typeof id === "string") : []);
+        pointEntities.forEach((_, id) => setEntityAppearance(id));
+        spatialEntities.forEach((_, id) => setSpatialAppearance(id));
         viewer?.scene.requestRender();
       };
 
@@ -1261,7 +1377,9 @@
           counts.set(group, (counts.get(group) || 0) + 1);
         });
         if (spatialEntities.size) counts.set("water", (counts.get("water") || 0) + spatialEntities.size);
-        activePointGroups = new Set(counts.keys());
+        activePointGroups = externalPointGroups === null
+          ? new Set(counts.keys())
+          : new Set(Array.from(externalPointGroups).filter((group) => Object.hasOwn(pointCategoryLabels, group)));
         filterElement.replaceChildren();
         Object.keys(pointCategoryLabels).forEach((group) => {
           const count = counts.get(group);
@@ -1270,7 +1388,7 @@
           label.className = "point-filter-option";
           const input = document.createElement("input");
           input.type = "checkbox";
-          input.checked = true;
+          input.checked = activePointGroups.has(group);
           input.value = group;
           input.addEventListener("change", () => {
             if (input.checked) activePointGroups.add(group);
@@ -1284,6 +1402,18 @@
           label.append(input, name, amount);
           filterElement.append(label);
         });
+      };
+
+      const setExternalPointGroups = (groups) => {
+        externalPointGroups = new Set(
+          (Array.isArray(groups) ? groups : [])
+            .filter((group) => typeof group === "string" && Object.hasOwn(pointCategoryLabels, group)),
+        );
+        activePointGroups = new Set(externalPointGroups);
+        filterElement.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+          input.checked = activePointGroups.has(input.value);
+        });
+        applyPointFilter();
       };
 
       const setAllPointTypes = (checked) => {
@@ -1612,6 +1742,11 @@
             else {
               const spatialId = spatialAtScreenPosition(movement.position);
               if (spatialId) selectSpatial(spatialId, movement.position);
+              else {
+                clearPoint(false);
+                clearSpatial(false);
+                postToParent({ type: "hongtang-gaussian-selection-clear" });
+              }
             }
           }
         }, Cesium.ScreenSpaceEventType.LEFT_UP);
@@ -1795,6 +1930,8 @@
       };
       selectAllPointTypesButton.addEventListener("click", () => setAllPointTypes(true));
       clearPointTypesButton.addEventListener("click", () => setAllPointTypes(false));
+      pointFilterToggle.addEventListener("click", () => setPointFilterOpen(!pointFilterPanel.classList.contains("open")));
+      closePointFilterButton.addEventListener("click", () => setPointFilterOpen(false));
       document.getElementById("showAllButton").addEventListener("click", flyToAllPoints);
       document.getElementById("centerButton").addEventListener("click", flyToModel);
       settingsButton.addEventListener("click", () => {
@@ -1828,6 +1965,13 @@
           const nextWaterSystem = event.data.waterSystem;
           if (viewer) setSpatialLayers(nextWaterSystem);
           else waterSystemPayload = nextWaterSystem;
+        }
+        if (event.data?.type === "hongtang-gaussian-water-topic-mode") setWaterTopicMode(event.data.mode);
+        if (event.data?.type === "hongtang-gaussian-filter-groups-set") setExternalPointGroups(event.data.groups);
+        if (event.data?.type === "hongtang-gaussian-water-relation-set") setWaterRelations(event.data.ids);
+        if (event.data?.type === "hongtang-gaussian-water-select" && typeof event.data.id === "string") {
+          if (pointEntities.has(event.data.id)) selectPoint(event.data.id);
+          else if (spatialEntities.has(event.data.id)) selectSpatial(event.data.id);
         }
         if (event.data?.type === "hongtang-gaussian-point-clear") clearPoint();
         if (event.data?.type === "hongtang-gaussian-spatial-clear") clearSpatial();

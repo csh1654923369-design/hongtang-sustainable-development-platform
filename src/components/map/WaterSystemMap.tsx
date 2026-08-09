@@ -7,7 +7,7 @@ import { geographicBasemaps, VillageBasemap } from "@/components/map/VillageMap"
 import { useMapZoom } from "@/components/map/useMapZoom";
 
 export type WaterNodeKind = "source" | "storage" | "supply" | "treatment";
-export type WaterLineKind = "main-drain" | "outlet" | "branch-drain";
+export type WaterLineKind = "supply-main" | "supply-branch" | "main-drain" | "outlet" | "branch-drain";
 
 export interface WaterSystemNode {
   id: string;
@@ -66,6 +66,8 @@ const nodeStyles: Record<WaterNodeKind, { color: string; label: string }> = {
 };
 
 const lineStyles: Record<WaterLineKind, { color: string; width: number; dash?: string; label: string }> = {
+  "supply-main": { color: "#176d91", width: 3, label: "供水主管" },
+  "supply-branch": { color: "#45a7c4", width: 2.2, dash: "5 4", label: "供水支管" },
   "main-drain": { color: "#2f7fa8", width: 2.6, label: "主排水沟" },
   outlet: { color: "#1d4e89", width: 3, label: "出流沟" },
   "branch-drain": { color: "#6ba6c4", width: 1.8, dash: "7 5", label: "支沟" },
@@ -76,7 +78,7 @@ export function WaterSystemMap() {
   const [data, setData] = useState<WaterSystemData>();
   const [selection, setSelection] = useState<Selection>();
   const [showZones, setShowZones] = useState(true);
-  const { containerRef, frameRef, frameStyle, zoomed, scale, reset, panHandlers } = useMapZoom();
+  const { containerRef, frameRef, frameStyle, viewChanged, scale, reset, panHandlers } = useMapZoom();
 
   useEffect(() => {
     reset();
@@ -118,7 +120,7 @@ export function WaterSystemMap() {
     <div className="water-system">
       <div className="water-system-canvas">
         <div
-          className={`map-geographic-stage ${zoomed ? "zoomed" : ""}`}
+          className={`map-geographic-stage ${viewChanged ? "view-changed" : ""}`}
           ref={containerRef}
           {...panHandlers}
         >
@@ -127,7 +129,7 @@ export function WaterSystemMap() {
             ref={frameRef}
             style={{ aspectRatio: `${geographic.width} / ${geographic.height}`, ...frameStyle }}
           >
-            <Image src={geographic.src} alt={geographic.alt} width={geographic.width} height={geographic.height} unoptimized />
+            <Image src={geographic.src} alt={geographic.alt} width={geographic.width} height={geographic.height} unoptimized draggable={false} />
           {data ? (
             <svg
               className="water-system-svg"
@@ -183,10 +185,10 @@ export function WaterSystemMap() {
             </svg>
           ) : null}
         </div>
-        {zoomed ? (
+        {viewChanged ? (
           <button type="button" className="map-zoom-reset" onClick={reset}>复位视图 · {scale.toFixed(1)}×</button>
         ) : (
-          <span className="map-zoom-hint">滚轮缩放 · 双击复位</span>
+          <span className="map-zoom-hint">按住左键拖动 · 滚轮缩放 · 双击复位</span>
         )}
         </div>
         <div className="map-basemap-control" aria-label="切换水文地图底图">

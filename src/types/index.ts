@@ -381,6 +381,7 @@ export interface SpatialFeature {
   imageLabel: string;
   imageUrls?: string[];
   sourceLabel?: string;
+  waterSystemBranch?: "supply" | "drainage" | "both";
 }
 
 export interface ResearchSubmission extends DemoRecord {

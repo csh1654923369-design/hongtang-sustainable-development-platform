@@ -1,165 +1,276 @@
 {
-  "title": "红塘村水文与排水系统（演示数据）",
-  "notice": "演示数据：排水走向由村内核心区DSM地形推演，给水分片为示意划分；位置与范围均需实地核对后替换。",
-  "updatedAt": "2026-07-30",
-  "terrainBasis": "村内核心区无人机DSM，东北高（约1646米）、西南低（约1567米），水自东北山箐向西南水田方向汇流，中部低点为中心水塘。",
+  "title": "红塘村水系统（结构示意，待核实）",
+  "notice": "当前内容用于验证水专题的表达和交互逻辑。供水来源、管线走向、分片边界、使用对象及维护关系均需通过村民访谈、现场踏勘和已有规划资料逐项核实后替换。",
+  "updatedAt": "2026-08-09",
+  "terrainBasis": "排水方向参考村内核心区无人机DSM的东北高、西南低地形趋势；给水关系和分片范围目前仅为结构示意。",
+  "story": {
+    "title": "村里的水",
+    "question": "水从哪里来，经过哪里，被谁使用，最后到哪里去，又由谁共同建设和维护？",
+    "overview": {
+      "title": "水系统全貌",
+      "question": "红塘村的饮水、排水与生产生活空间怎样连在一起？",
+      "summary": "把水源、供水设施、住户片区、排水沟、水塘和处理节点放在同一张图上，先看清村庄整体的水循环。",
+      "chain": ["山箐与山泉", "供水分片", "房前屋后", "沟渠与水塘", "处理后出村"]
+    },
+    "supply": {
+      "title": "饮水供给",
+      "question": "每个片区的水从哪里来，经过哪条线路，又供应给谁？",
+      "summary": "选择供水片区，可以反向追踪水源、输水线路和集中供水点；选择水源，则可以继续查看它服务的片区。",
+      "chain": ["水源", "供水线路", "集中供水点", "供水片区", "住户与生产"]
+    },
+    "drainage": {
+      "title": "排水去向",
+      "question": "房前屋后的水从哪里汇集，沿什么方向流动，最后排到哪里？",
+      "summary": "从支沟、主沟和水塘逐段查看上下游，理解雨水、生活排水与农田、沟谷之间的关系。",
+      "chain": ["房前屋后", "支沟", "主沟", "中心水塘", "处理节点", "下游农田"]
+    },
+    "participationPrompt": "下一步应邀请不同片区的村民沿图核对水源、线路、用水对象、季节变化和维护责任。"
+  },
   "nodes": [
     {
       "id": "water-node-reservoir",
       "kind": "source",
-      "title": "山箐水库",
+      "system": "supply",
+      "title": "山箐水源",
       "longitude": 99.9105,
       "latitude": 24.6413,
       "elevation": 1645.8,
       "location": "村东北山箐",
-      "description": "村庄主水源之一，山箐蓄水，地势为全村最高点附近，可自压供水。",
-      "status": "演示数据"
+      "description": "用于演示村庄上游水源与不同供水片区之间的关系，具体名称、取水方式和供水范围待核实。",
+      "status": "待核实",
+      "downstreamIds": ["water-supply-north", "water-supply-south"],
+      "servedZoneIds": ["water-zone-north", "water-zone-south"],
+      "functions": ["汇集和储存上游来水", "利用高差向部分片区供水"],
+      "maintenance": "需要核实水源保护、清淤、水质检查及日常巡查分别由谁承担。",
+      "openQuestions": ["枯水期和雨季的水量是否稳定？", "水源由哪些住户共同使用？", "最近一次维修或清淤是什么时候？"]
     },
     {
       "id": "water-node-spring",
       "kind": "source",
-      "title": "老龙潭山泉",
+      "system": "supply",
+      "title": "山泉取水点",
       "longitude": 99.9098,
       "latitude": 24.6409,
       "elevation": 1641.7,
       "location": "村北坡地",
-      "description": "常年山泉，与山箐水库互为补充水源。",
-      "status": "演示数据"
+      "description": "用于演示山泉水源与中片供水之间的联系，实际位置、名称和使用方式待村民确认。",
+      "status": "待核实",
+      "downstreamIds": ["water-supply-mid"],
+      "servedZoneIds": ["water-zone-mid"],
+      "functions": ["作为生活饮水或季节性补充水源"],
+      "maintenance": "需要了解取水口的保护方式、日常清理人员及水质判断方法。",
+      "openQuestions": ["山泉是否全年有水？", "哪些家庭仍在使用？", "是否设置沉淀、过滤或消毒设施？"]
     },
     {
       "id": "water-node-pond",
       "kind": "storage",
+      "system": "drainage",
       "title": "中心水塘",
       "longitude": 99.9053,
       "latitude": 24.6397,
       "elevation": 1591.7,
       "location": "村落中部低洼处",
-      "description": "北沟与东沟汇流点，兼具调蓄、消防与景观功能；地形推演显示村内汇水自然向此汇集。",
-      "status": "演示数据"
+      "description": "地形推演中的主要汇水位置，用于呈现上游沟渠汇入、调蓄后再向下游排出的关系。",
+      "status": "待核实",
+      "upstreamIds": ["water-line-north", "water-line-east"],
+      "downstreamIds": ["water-line-outlet"],
+      "functions": ["汇集上游排水", "雨季调蓄", "消防或生产备用功能待确认"],
+      "maintenance": "需要核实水塘产权、清淤频率、安全管理和水质维护方式。",
+      "openQuestions": ["水塘主要接收雨水还是也接收生活排水？", "溢流口和下游去向在哪里？", "村民如何使用和维护水塘？"]
     },
     {
       "id": "water-node-supply-north",
       "kind": "supply",
+      "system": "supply",
       "title": "北片集中供水点",
       "longitude": 99.9075,
       "latitude": 24.6399,
       "elevation": 1630.7,
       "location": "北片居住区",
-      "description": "服务北片住户，由山箐水库自压供水。",
-      "status": "演示数据"
+      "description": "用于演示水源进入北片住户前的集中供水节点，设施形式和准确位置待核实。",
+      "status": "待核实",
+      "upstreamIds": ["water-node-reservoir", "water-supply-north"],
+      "servedZoneIds": ["water-zone-north"],
+      "functions": ["承接上游来水", "向北片住户分配供水"],
+      "maintenance": "需要核实阀门、水池或过滤设施由谁管理，发生停水时如何通知和处理。",
+      "openQuestions": ["实际服务多少户？", "是否存在水压不足或漏损？", "谁保管和维修关键设施？"]
     },
     {
       "id": "water-node-supply-mid",
       "kind": "supply",
+      "system": "supply",
       "title": "中片集中供水点",
       "longitude": 99.9058,
       "latitude": 24.6372,
       "elevation": null,
       "location": "中片居住区",
-      "description": "服务中片住户，水源与供水方式待实地核对。",
-      "status": "演示数据"
+      "description": "用于演示中片住户与上游水源的供给关系，具体供水方式待核实。",
+      "status": "待核实",
+      "upstreamIds": ["water-node-spring", "water-supply-mid"],
+      "servedZoneIds": ["water-zone-mid"],
+      "functions": ["向中片居住区分配生活用水"],
+      "maintenance": "需要通过访谈确认共同建设过程、费用分担和当前维护责任。",
+      "openQuestions": ["水来自山泉还是其他水源？", "供水是否需要提水？", "停水和水质问题如何协商？"]
     },
     {
       "id": "water-node-supply-south",
       "kind": "supply",
+      "system": "supply",
       "title": "南片集中供水点",
-      "longitude": 99.9040,
+      "longitude": 99.904,
       "latitude": 24.6355,
-      "elevation": 1588.0,
+      "elevation": 1588,
       "location": "南片居住区",
-      "description": "服务南片住户，地势较低，需核对是否提水或自压。",
-      "status": "演示数据"
+      "description": "用于演示地势较低片区的供水关系，是否由上游自压供水或另有取水设施待核实。",
+      "status": "待核实",
+      "upstreamIds": ["water-node-reservoir", "water-supply-south"],
+      "servedZoneIds": ["water-zone-south"],
+      "functions": ["向南片住户和房前屋后生产空间分配用水"],
+      "maintenance": "需要核实管线长距离维护、漏损排查和末端水压管理方式。",
+      "openQuestions": ["南片实际水源在哪里？", "末端是否存在季节性缺水？", "生活用水与生产用水是否共用线路？"]
     },
     {
       "id": "water-node-wetland",
       "kind": "treatment",
-      "title": "污水氧化塘",
+      "system": "drainage",
+      "title": "末端处理节点",
       "longitude": 99.9034,
       "latitude": 24.6328,
       "elevation": 1566.6,
-      "location": "村西南出水口",
-      "description": "南出流沟末端污水处理节点，处理后水排向下方水田；对应分布式污水治理设想。",
-      "status": "演示数据"
+      "location": "村西南出水方向",
+      "description": "用于演示村庄排水在进入下游农田或沟谷前的处理环节，实际是否存在及采用何种方式待核实。",
+      "status": "待核实",
+      "upstreamIds": ["water-line-outlet"],
+      "functions": ["沉淀或净化村庄末端排水", "连接村庄排水与下游农田水系"],
+      "maintenance": "若存在分布式处理设施，需要核实清理周期、运行人员、费用来源和异常处理办法。",
+      "openQuestions": ["村庄污水目前实际排向哪里？", "是否经过集中或分散处理？", "处理后的水是否再次利用？"]
     }
   ],
   "lines": [
     {
+      "id": "water-supply-north",
+      "kind": "supply-main",
+      "system": "supply",
+      "title": "北片供水线路",
+      "path": [[99.9105, 24.6413], [99.9095, 24.6408], [99.9085, 24.6403], [99.9075, 24.6399]],
+      "dropMeters": 15.1,
+      "location": "山箐水源—北片居住区",
+      "description": "用于演示山箐水源向北片集中供水点输水的关系，实际管线走向待核实。",
+      "status": "待核实",
+      "fromNodeId": "water-node-reservoir",
+      "toNodeId": "water-node-supply-north",
+      "servedZoneIds": ["water-zone-north"],
+      "flowDescription": "示意流向：山箐水源 → 北片供水线路 → 北片集中供水点 → 北片住户。",
+      "maintenance": "需要沿线核实埋管位置、阀门、漏损点和维修责任。",
+      "openQuestions": ["管径、材质和建设年份是什么？", "线路是否经过蓄水或过滤设施？"]
+    },
+    {
+      "id": "water-supply-mid",
+      "kind": "supply-branch",
+      "system": "supply",
+      "title": "中片供水线路",
+      "path": [[99.9098, 24.6409], [99.9084, 24.6397], [99.9071, 24.6385], [99.9058, 24.6372]],
+      "dropMeters": 28.4,
+      "location": "山泉取水点—中片居住区",
+      "description": "用于演示山泉取水点与中片集中供水点之间的联系，实际来源和路线待核实。",
+      "status": "待核实",
+      "fromNodeId": "water-node-spring",
+      "toNodeId": "water-node-supply-mid",
+      "servedZoneIds": ["water-zone-mid"],
+      "flowDescription": "示意流向：山泉取水点 → 中片供水线路 → 中片集中供水点 → 中片住户。",
+      "maintenance": "需要核实季节性断流、管线跨沟和入户分支的维护办法。",
+      "openQuestions": ["是否与其他水源互相补充？", "入户支管由集体还是住户维护？"]
+    },
+    {
+      "id": "water-supply-south",
+      "kind": "supply-main",
+      "system": "supply",
+      "title": "南片供水线路",
+      "path": [[99.9105, 24.6413], [99.9088, 24.6395], [99.907, 24.6377], [99.9054, 24.6364], [99.904, 24.6355]],
+      "dropMeters": 57.8,
+      "location": "上游水源—南片居住区",
+      "description": "用于演示上游水源向南片输水的长距离关系，实际是否存在同一路线待核实。",
+      "status": "待核实",
+      "fromNodeId": "water-node-reservoir",
+      "toNodeId": "water-node-supply-south",
+      "servedZoneIds": ["water-zone-south"],
+      "flowDescription": "示意流向：上游水源 → 南片供水线路 → 南片集中供水点 → 南片住户和生产空间。",
+      "maintenance": "需要重点核实长距离线路的漏损、压力和分段关闭方式。",
+      "openQuestions": ["南片是否与北片共用水源？", "沿线是否设置水池、阀门或加压设施？"]
+    },
+    {
       "id": "water-line-north",
       "kind": "main-drain",
+      "system": "drainage",
       "title": "北沟（主排水沟）",
-      "path": [
-        [99.9105, 24.6412],
-        [99.9092, 24.6408],
-        [99.9079, 24.6404],
-        [99.9066, 24.6401],
-        [99.9053, 24.6397]
-      ],
+      "path": [[99.9105, 24.6412], [99.9092, 24.6408], [99.9079, 24.6404], [99.9066, 24.6401], [99.9053, 24.6397]],
       "dropMeters": 50.9,
       "location": "村北坡—村落中部",
-      "description": "自山箐水库方向顺坡而下，汇集北坡与房前屋后排水，汇入中心水塘。",
-      "status": "演示数据"
+      "description": "按照地形趋势示意北坡来水汇入中心水塘的路径，实际沟渠位置待核实。",
+      "status": "待核实",
+      "toNodeId": "water-node-pond",
+      "flowDescription": "示意流向：北坡与房前屋后来水 → 北沟 → 中心水塘。",
+      "maintenance": "需要核实沟渠清理、堵塞处理和雨季巡查由哪些住户或组织承担。",
+      "openQuestions": ["沟内主要是雨水还是生活排水？", "容易堵塞或漫水的位置在哪里？"]
     },
     {
       "id": "water-line-east",
       "kind": "main-drain",
+      "system": "drainage",
       "title": "东沟",
-      "path": [
-        [99.9115, 24.6380],
-        [99.9100, 24.6382],
-        [99.9085, 24.6386],
-        [99.9060, 24.6399],
-        [99.9053, 24.6397]
-      ],
+      "path": [[99.9115, 24.638], [99.91, 24.6382], [99.9085, 24.6386], [99.906, 24.6399], [99.9053, 24.6397]],
       "dropMeters": 50.2,
       "location": "村东高地—村落中部",
-      "description": "汇集村东高地与茶园边坡来水，向西汇入中心水塘。",
-      "status": "演示数据"
+      "description": "按照地形趋势示意村东高地和茶园边坡来水向中心水塘汇集的路径。",
+      "status": "待核实",
+      "toNodeId": "water-node-pond",
+      "flowDescription": "示意流向：村东高地与茶园边坡 → 东沟 → 中心水塘。",
+      "maintenance": "需要核实边坡冲刷、泥沙淤积和茶园排水对沟渠的影响。",
+      "openQuestions": ["茶园排水是否进入这条沟？", "雨季是否出现冲刷、塌方或淤堵？"]
     },
     {
       "id": "water-line-outlet",
       "kind": "outlet",
+      "system": "drainage",
       "title": "南出流沟",
-      "path": [
-        [99.9053, 24.6397],
-        [99.9048, 24.6380],
-        [99.9046, 24.6363],
-        [99.9038, 24.6346],
-        [99.9034, 24.6328],
-        [99.9028, 24.6320]
-      ],
+      "path": [[99.9053, 24.6397], [99.9048, 24.638], [99.9046, 24.6363], [99.9038, 24.6346], [99.9034, 24.6328], [99.9028, 24.632]],
       "dropMeters": 24.7,
-      "location": "中心水塘—村西南出水口",
-      "description": "中心水塘出流通道，经污水氧化塘处理后出村，流向下方水田。",
-      "status": "演示数据"
+      "location": "中心水塘—村西南出水方向",
+      "description": "示意中心水塘的水沿村庄低处向西南流出，并在进入下游前经过处理节点。",
+      "status": "待核实",
+      "fromNodeId": "water-node-pond",
+      "toNodeId": "water-node-wetland",
+      "flowDescription": "示意流向：中心水塘 → 南出流沟 → 末端处理节点 → 下游农田或沟谷。",
+      "maintenance": "需要核实末端水质、出水口安全及上下游使用者之间的维护协调。",
+      "openQuestions": ["最终出水口的准确位置在哪里？", "下游农田是否利用这部分水？"]
     },
     {
       "id": "water-branch-center",
       "kind": "branch-drain",
+      "system": "drainage",
       "title": "村中支沟（房前屋后排水）",
-      "path": [
-        [99.9070, 24.6388],
-        [99.9063, 24.6378],
-        [99.9056, 24.6368],
-        [99.9050, 24.6360]
-      ],
+      "path": [[99.907, 24.6388], [99.9063, 24.6378], [99.9056, 24.6368], [99.905, 24.636]],
       "dropMeters": 39.8,
       "location": "中片居住区",
-      "description": "收集房前屋后雨水与生活排水，向南汇入南出流沟。",
-      "status": "演示数据"
+      "description": "用于表达房前屋后排水如何先进入支沟，再接入村庄主排水系统。",
+      "status": "待核实",
+      "flowDescription": "示意流向：庭院、屋面和生活空间 → 村中支沟 → 南出流方向。",
+      "maintenance": "支沟与每家每户关系最直接，需要核实门前沟段由住户还是集体清理。",
+      "openQuestions": ["哪些住户接入这条支沟？", "雨污是否分开？", "日常清理如何分工？"]
     },
     {
       "id": "water-branch-east",
       "kind": "branch-drain",
+      "system": "drainage",
       "title": "村东支沟",
-      "path": [
-        [99.9095, 24.6395],
-        [99.9088, 24.6385],
-        [99.9074, 24.6371]
-      ],
+      "path": [[99.9095, 24.6395], [99.9088, 24.6385], [99.9074, 24.6371]],
       "dropMeters": 10.3,
       "location": "东片居住区",
-      "description": "收集东片住户排水，下游接入位置待实地核对。",
-      "status": "演示数据"
+      "description": "用于表达东片住户和坡地来水进入主排水系统的过程，下游接入点待核实。",
+      "status": "待核实",
+      "flowDescription": "示意流向：东片房前屋后与坡地 → 村东支沟 → 下游主沟。",
+      "maintenance": "需要核实沟渠经过的住户、清理边界及雨季风险点。",
+      "openQuestions": ["支沟下游接入哪条主沟？", "是否存在污水直排或雨季漫流？"]
     }
   ],
   "zones": [
@@ -167,48 +278,49 @@
       "id": "water-zone-north",
       "title": "北片供水分区",
       "kind": "supply-zone",
-      "polygon": [
-        [99.9032, 24.6413],
-        [99.9118, 24.6413],
-        [99.9118, 24.6392],
-        [99.9060, 24.6386],
-        [99.9032, 24.6386]
-      ],
+      "system": "supply",
+      "polygon": [[99.9032, 24.6413], [99.9118, 24.6413], [99.9118, 24.6392], [99.906, 24.6386], [99.9032, 24.6386]],
       "supplyNodeId": "water-node-supply-north",
+      "sourceNodeIds": ["water-node-reservoir"],
+      "routeLineIds": ["water-supply-north"],
       "location": "村落北部",
-      "description": "地势最高，山箐水库与老龙潭山泉自压供水。",
-      "status": "演示数据"
+      "description": "用于演示北片住户共同使用上游水源的关系，边界、户数和实际水源待核实。",
+      "status": "待核实",
+      "servedUses": ["住户生活饮水", "房前屋后清洗与浇灌用途待确认"],
+      "maintenance": "需要访谈共同建设过程、费用分担、停水通知和日常维修责任。",
+      "openQuestions": ["具体包含哪些住户？", "是否与其他片区互联互通？", "村民认为最常见的用水问题是什么？"]
     },
     {
       "id": "water-zone-mid",
       "title": "中片供水分区",
       "kind": "supply-zone",
-      "polygon": [
-        [99.9032, 24.6386],
-        [99.9060, 24.6386],
-        [99.9118, 24.6392],
-        [99.9118, 24.6352],
-        [99.9032, 24.6352]
-      ],
+      "system": "supply",
+      "polygon": [[99.9032, 24.6386], [99.906, 24.6386], [99.9118, 24.6392], [99.9118, 24.6352], [99.9032, 24.6352]],
       "supplyNodeId": "water-node-supply-mid",
+      "sourceNodeIds": ["water-node-spring"],
+      "routeLineIds": ["water-supply-mid"],
       "location": "村落中部",
-      "description": "中心水塘所在片区，供水方式待核对。",
-      "status": "演示数据"
+      "description": "用于演示中片住户、山泉取水点和集中供水设施之间的关系。",
+      "status": "待核实",
+      "servedUses": ["住户生活饮水", "公共空间和小花园用水待确认"],
+      "maintenance": "需要核实供水设施是由哪些村民共同建设，目前由谁巡查和维修。",
+      "openQuestions": ["实际供水来源和边界是什么？", "小花园用水是否来自同一系统？", "旱季是否需要其他水源补充？"]
     },
     {
       "id": "water-zone-south",
       "title": "南片供水分区",
       "kind": "supply-zone",
-      "polygon": [
-        [99.9032, 24.6352],
-        [99.9118, 24.6352],
-        [99.9118, 24.6320],
-        [99.9032, 24.6320]
-      ],
+      "system": "supply",
+      "polygon": [[99.9032, 24.6352], [99.9118, 24.6352], [99.9118, 24.632], [99.9032, 24.632]],
       "supplyNodeId": "water-node-supply-south",
+      "sourceNodeIds": ["water-node-reservoir"],
+      "routeLineIds": ["water-supply-south"],
       "location": "村落南部",
-      "description": "地势最低，排水出村方向，供水方式待核对。",
-      "status": "演示数据"
+      "description": "用于演示地势较低片区与上游水源、长距离供水线路之间的关系。",
+      "status": "待核实",
+      "servedUses": ["住户生活饮水", "庭院生产和下游农田用水关系待确认"],
+      "maintenance": "需要重点了解末端水压、漏损、生产生活用水协调及跨片区维护机制。",
+      "openQuestions": ["实际水源是否位于上游？", "末端住户是否经常缺水？", "生产用水与生活用水怎样协调？"]
     }
   ]
 }

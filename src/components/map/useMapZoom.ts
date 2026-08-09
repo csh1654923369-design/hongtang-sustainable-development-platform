@@ -11,12 +11,35 @@ interface MapView {
 const INITIAL_VIEW: MapView = { scale: 1, x: 0, y: 0 };
 const MIN_SCALE = 1;
 const MAX_SCALE = 5;
+const MAX_EDGE_SLACK = 96;
+const MIN_VISIBLE_EDGE = 120;
 
-function clampView(view: MapView, frameWidth: number, frameHeight: number): MapView {
+function clampView(
+  view: MapView,
+  frameWidth: number,
+  frameHeight: number,
+  containerWidth: number,
+  containerHeight: number,
+  frameLeft: number,
+  frameTop: number,
+): MapView {
+  const clampAxis = (value: number, frameSize: number, containerSize: number, offset: number) => {
+    const scaledSize = frameSize * view.scale;
+    const edgeSlack = Math.min(MAX_EDGE_SLACK, containerSize * 0.12);
+    if (scaledSize < containerSize) {
+      const minimumVisible = Math.min(MIN_VISIBLE_EDGE, scaledSize * 0.35, containerSize * 0.25);
+      const minimum = minimumVisible - offset - scaledSize;
+      const maximum = containerSize - minimumVisible - offset;
+      return Math.min(maximum, Math.max(minimum, value));
+    }
+    const minimum = containerSize - offset - scaledSize - edgeSlack;
+    const maximum = -offset + edgeSlack;
+    return Math.min(maximum, Math.max(minimum, value));
+  };
   return {
     scale: view.scale,
-    x: Math.min(0, Math.max(frameWidth * (1 - view.scale), view.x)),
-    y: Math.min(0, Math.max(frameHeight * (1 - view.scale), view.y)),
+    x: clampAxis(view.x, frameWidth, containerWidth, frameLeft),
+    y: clampAxis(view.y, frameHeight, containerHeight, frameTop),
   };
 }
 
@@ -30,7 +53,9 @@ export function useMapZoom() {
   const containerRef = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<MapView>(INITIAL_VIEW);
+  const [isTransitioning, setIsTransitioning] = useState(false);
   const viewRef = useRef<MapView>(INITIAL_VIEW);
+  const transitionTimerRef = useRef<number | undefined>(undefined);
   const dragRef = useRef<{ pointerId: number; startX: number; startY: number; baseX: number; baseY: number; moved: boolean } | null>(null);
   const suppressClickRef = useRef(false);
 
@@ -42,13 +67,57 @@ export function useMapZoom() {
     });
   }, []);
 
-  const reset = useCallback(() => applyView(INITIAL_VIEW), [applyView]);
+  const stopTransition = useCallback(() => {
+    if (transitionTimerRef.current !== undefined) window.clearTimeout(transitionTimerRef.current);
+    transitionTimerRef.current = undefined;
+    setIsTransitioning(false);
+  }, []);
+
+  const startTransition = useCallback(() => {
+    if (transitionTimerRef.current !== undefined) window.clearTimeout(transitionTimerRef.current);
+    setIsTransitioning(true);
+    transitionTimerRef.current = window.setTimeout(() => {
+      transitionTimerRef.current = undefined;
+      setIsTransitioning(false);
+    }, 460);
+  }, []);
+
+  useEffect(() => () => {
+    if (transitionTimerRef.current !== undefined) window.clearTimeout(transitionTimerRef.current);
+  }, []);
+
+  const reset = useCallback(() => {
+    startTransition();
+    applyView(INITIAL_VIEW);
+  }, [applyView, startTransition]);
+
+  const focusAt = useCallback((xPercent: number, yPercent: number, preferredScale = 2.35) => {
+    const container = containerRef.current;
+    const frame = frameRef.current;
+    if (!container || !frame) return;
+    const scale = Math.min(MAX_SCALE, Math.max(MIN_SCALE, preferredScale));
+    const targetX = frame.offsetWidth * xPercent / 100;
+    const targetY = frame.offsetHeight * yPercent / 100;
+    const desiredX = container.clientWidth / 2 - frame.offsetLeft - targetX * scale;
+    const desiredY = container.clientHeight / 2 - frame.offsetTop - targetY * scale;
+    startTransition();
+    applyView(clampView(
+      { scale, x: desiredX, y: desiredY },
+      frame.offsetWidth,
+      frame.offsetHeight,
+      container.clientWidth,
+      container.clientHeight,
+      frame.offsetLeft,
+      frame.offsetTop,
+    ));
+  }, [applyView, startTransition]);
 
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const onWheel = (event: WheelEvent) => {
       event.preventDefault();
+      stopTransition();
       const frame = frameRef.current;
       if (!frame) return;
       const rect = el.getBoundingClientRect();
@@ -66,21 +135,26 @@ export function useMapZoom() {
           { scale, x: cx - (cx - previous.x) * ratio, y: cy - (cy - previous.y) * ratio },
           fw,
           fh,
+          el.clientWidth,
+          el.clientHeight,
+          frame.offsetLeft,
+          frame.offsetTop,
         );
       });
     };
     el.addEventListener("wheel", onWheel, { passive: false });
     return () => el.removeEventListener("wheel", onWheel);
-  }, [applyView]);
+  }, [applyView, stopTransition]);
 
   const onPointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    if (event.button !== 0) return;
+    if (event.button !== 0 || !event.isPrimary) return;
     const el = containerRef.current;
     const current = viewRef.current;
-    if (!el || current.scale <= 1) return;
+    if (!el) return;
+    stopTransition();
     dragRef.current = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, baseX: current.x, baseY: current.y, moved: false };
     el.setPointerCapture(event.pointerId);
-  }, []);
+  }, [stopTransition]);
 
   const onPointerMove = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
     const drag = dragRef.current;
@@ -91,7 +165,15 @@ export function useMapZoom() {
     if (!drag.moved && Math.hypot(dx, dy) < 4) return;
     drag.moved = true;
     applyView((previous) =>
-      clampView({ scale: previous.scale, x: drag.baseX + dx, y: drag.baseY + dy }, frame.offsetWidth, frame.offsetHeight),
+      clampView(
+        { scale: previous.scale, x: drag.baseX + dx, y: drag.baseY + dy },
+        frame.offsetWidth,
+        frame.offsetHeight,
+        containerRef.current?.clientWidth ?? frame.offsetWidth,
+        containerRef.current?.clientHeight ?? frame.offsetHeight,
+        frame.offsetLeft,
+        frame.offsetTop,
+      ),
     );
   }, [applyView]);
 
@@ -100,6 +182,7 @@ export function useMapZoom() {
     if (!drag || drag.pointerId !== event.pointerId) return;
     if (drag.moved) suppressClickRef.current = true;
     dragRef.current = null;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
   }, []);
 
   const onClickCapture = useCallback((event: React.MouseEvent<HTMLDivElement>) => {
@@ -110,12 +193,14 @@ export function useMapZoom() {
     }
   }, []);
 
-  const onDoubleClick = useCallback(() => applyView(INITIAL_VIEW), [applyView]);
+  const onDoubleClick = useCallback(() => reset(), [reset]);
 
   const zoomed = view.scale > 1.01;
+  const viewChanged = zoomed || Math.abs(view.x) > 0.5 || Math.abs(view.y) > 0.5;
   const frameStyle: React.CSSProperties = {
     transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`,
     transformOrigin: "0 0",
+    transition: isTransitioning ? "transform 420ms cubic-bezier(.2,.75,.25,1)" : undefined,
   };
 
   return {
@@ -123,8 +208,11 @@ export function useMapZoom() {
     frameRef,
     frameStyle,
     zoomed,
+    viewChanged,
     scale: view.scale,
+    isTransitioning,
     reset,
+    focusAt,
     panHandlers: { onPointerDown, onPointerMove, onPointerUp: endDrag, onPointerCancel: endDrag, onClickCapture, onDoubleClick },
   };
 }
