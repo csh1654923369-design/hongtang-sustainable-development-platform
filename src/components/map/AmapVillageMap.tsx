@@ -19,7 +19,7 @@ import {
 } from "@/lib/spatialData";
 import { MapFeatureType, type SpatialFeature } from "@/types";
 
-export type VillageOverlayMode = "none" | VillageBasemap;
+export type VillageOverlayMode = "none" | "satellite" | VillageBasemap;
 
 type Runtime = {
   AMap: AmapNamespace;
@@ -157,7 +157,7 @@ export function AmapVillageMap({
   useEffect(() => {
     if (!runtime) return;
     const { AMap, map } = runtime;
-    if (overlayMode === "none") return;
+    if (overlayMode === "none" || overlayMode === "satellite") return;
     const geographic = geographicBasemaps[overlayMode];
     const southWest = wgs84ToGcj02(geographic.bounds.west, geographic.bounds.south);
     const northEast = wgs84ToGcj02(geographic.bounds.east, geographic.bounds.north);
@@ -170,6 +170,17 @@ export function AmapVillageMap({
     });
     map.add(layer);
     return () => map.remove(layer);
+  }, [overlayMode, runtime]);
+
+  useEffect(() => {
+    if (!runtime || overlayMode !== "satellite") return;
+    const { AMap, map } = runtime;
+    const layers = [
+      new AMap.TileLayer.Satellite({ zIndex: 2, zooms: [3, 20] }),
+      new AMap.TileLayer.RoadNet({ zIndex: 3, zooms: [3, 20] }),
+    ];
+    map.add(layers);
+    return () => map.remove(layers);
   }, [overlayMode, runtime]);
 
   useEffect(() => {
@@ -322,9 +333,17 @@ export function AmapVillageMap({
   const resetView = () => {
     runtime?.map.setZoomAndCenter(16.7, wgs84ToGcj02(...HONGTANG_CENTER_WGS84), false, 260);
   };
+  const toggleFullscreen = async () => {
+    try {
+      if (document.fullscreenElement) await document.exitFullscreen();
+      else await document.documentElement.requestFullscreen();
+    } catch {
+      // Browsers may reject fullscreen when it is disabled by device policy.
+    }
+  };
 
   return (
-    <div className={`amap-village-map amap-status-${status}`} data-map-provider={status === "ready" ? "amap" : "local-fallback"}>
+    <div className={`amap-village-map amap-status-${status}`} data-map-provider={status === "ready" ? "amap" : "local-fallback"} data-overlay-mode={overlayMode}>
       <div className="amap-local-fallback" aria-hidden={status === "ready"}>
         <VillageMap
           features={features}
@@ -362,7 +381,14 @@ export function AmapVillageMap({
               );
             })}
           </div>
-          <button type="button" className="amap-reset-view" onClick={resetView}>回到红塘</button>
+          <div className="map-scene-tools" aria-label="二维地图工具">
+            <button type="button" className="map-scene-tool" data-tooltip="回到中心" aria-label="回到中心" onClick={resetView}>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3" /><circle cx="12" cy="12" r="8" /></svg>
+            </button>
+            <button type="button" className="map-scene-tool" data-tooltip={"\u5168\u5c4f\u67e5\u770b"} aria-label={"\u5168\u5c4f\u67e5\u770b"} onClick={toggleFullscreen}>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5" /></svg>
+            </button>
+          </div>
         </>
       ) : null}
       {status === "loading" ? <div className="amap-map-status">正在连接云端底图…</div> : null}

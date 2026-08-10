@@ -49,6 +49,12 @@ type AmapImageLayerOptions = {
   zooms?: [number, number];
 };
 
+type AmapTileLayerOptions = {
+  opacity?: number;
+  zIndex?: number;
+  zooms?: [number, number];
+};
+
 type AmapPolylineOptions = {
   path: AmapCoordinate[];
   zIndex?: number;
@@ -77,6 +83,10 @@ type AmapPolygonOptions = {
 
 export interface AmapNamespace {
   Map: new (container: HTMLElement | string, options: AmapMapOptions) => AmapMapInstance;
+  TileLayer: {
+    Satellite: new (options?: AmapTileLayerOptions) => AmapOverlay;
+    RoadNet: new (options?: AmapTileLayerOptions) => AmapOverlay;
+  };
   Bounds: new (southWest: AmapCoordinate, northEast: AmapCoordinate) => unknown;
   ImageLayer: new (options: AmapImageLayerOptions) => AmapOverlay;
   Polyline: new (options: AmapPolylineOptions) => AmapOverlay;

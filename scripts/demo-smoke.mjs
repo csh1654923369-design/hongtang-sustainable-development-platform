@@ -140,9 +140,9 @@ await run("Cesium home loads the original ion model, world terrain and aerial im
 });
 await run("Cesium home creates every valid real point without village-boundary clipping", async () => {
   await page.goto(baseURL, { waitUntil: "domcontentloaded" });
-  await page.locator("[data-gaussian-state='ready'][data-real-point-count='205']").waitFor({ timeout: 120000 });
+  await page.locator("[data-gaussian-state='ready'][data-real-point-count='204']").waitFor({ timeout: 120000 });
   const cesiumFrame = page.frameLocator("#hongtang-gaussian-frame");
-  const viewerBody = cesiumFrame.locator("body[data-cesium-ready='true'][data-real-point-count='205']");
+  const viewerBody = cesiumFrame.locator("body[data-cesium-ready='true'][data-real-point-count='211']");
   await viewerBody.waitFor({ timeout: 120000 });
   assert.equal(await viewerBody.getAttribute("data-viewer-engine"), "cesiumjs");
   assert.equal(await viewerBody.getAttribute("data-cesium-version"), "1.143");
@@ -153,21 +153,20 @@ await run("Cesium home creates every valid real point without village-boundary c
   );
   assert.equal(await viewerBody.getAttribute("data-terrain-mode"), "cesium-world-terrain");
   assert.equal(await viewerBody.getAttribute("data-terrain-context"), "cesium-world-terrain");
-  assert.equal(await viewerBody.getAttribute("data-visible-point-count"), "205");
-  assert.equal(await cesiumFrame.locator("#pointCount").textContent(), "205个地点");
+  assert.equal(await viewerBody.getAttribute("data-visible-point-count"), "211");
   assert.equal(await viewerBody.getAttribute("data-point-initialization-count"), "1");
-  await cesiumFrame.locator("body[data-pin-renderer='html-svg'][data-research-point-renderer='circle'][data-research-point-count='149'][data-pin-grounded='true']").waitFor({ timeout: 120000 });
+  await cesiumFrame.locator("body[data-pin-renderer='html-svg'][data-research-point-renderer='circle'][data-research-point-count='149'][data-supporting-point-renderer='circle'][data-supporting-point-count='158'][data-pin-grounded='true']").waitFor({ timeout: 120000 });
   assert.equal(await viewerBody.getAttribute("data-poi-pin-visual-size"), "38x47");
   assert.equal(await viewerBody.getAttribute("data-poi-pin-hit-area"), "42x52");
   const vectorPins = cesiumFrame.locator("#pointOverlay .map-pin");
-  assert.equal(await vectorPins.count(), 205);
+  assert.equal(await vectorPins.count(), 211);
   assert.equal(await cesiumFrame.locator("#pointOverlay img").count(), 0);
-  assert.equal(await cesiumFrame.locator("#pointOverlay svg .map-pin-shape").count(), 56);
+  assert.equal(await cesiumFrame.locator("#pointOverlay svg .map-pin-shape").count(), 53);
   assert.equal(await cesiumFrame.locator("#pointOverlay .map-pin-character").count(), 0);
-  assert.equal(await cesiumFrame.locator("#pointOverlay .map-pin-symbol").count(), 56);
+  assert.equal(await cesiumFrame.locator("#pointOverlay .map-pin-symbol").count(), 53);
   assert.equal(await cesiumFrame.locator(".map-pin[data-point-id='real-poi-1'][data-pin-symbol='flower']").count(), 1);
-  assert.equal(await cesiumFrame.locator(".map-pin[data-point-id='real-poi-17'][data-pin-symbol='toilet']").count(), 1);
-  assert.equal(await cesiumFrame.locator("#pointOverlay .map-dot .map-dot-core").count(), 149);
+  assert.equal(await cesiumFrame.locator(".map-pin.map-dot[data-point-id='real-poi-17'][data-marker-shape='dot']").count(), 1);
+  assert.equal(await cesiumFrame.locator("#pointOverlay .map-dot .map-dot-core").count(), 158);
   assert.equal(await cesiumFrame.locator("#pointOverlay .map-dot svg").count(), 0);
   assert((await cesiumFrame.locator("#pointOverlay .map-pin:not([hidden])").count()) > 0);
   await page.waitForTimeout(3200);
@@ -185,7 +184,7 @@ await run("clicking a Cesium real point opens its coordinates and field photos",
   await page.goto(baseURL, { waitUntil: "domcontentloaded" });
   await page.locator("[data-gaussian-state='ready']").waitFor({ timeout: 120000 });
   const cesiumFrame = page.frameLocator("#hongtang-gaussian-frame");
-  const viewerBody = cesiumFrame.locator("body[data-real-point-count='205']");
+  const viewerBody = cesiumFrame.locator("body[data-real-point-count='211']");
   await viewerBody.waitFor({ timeout: 120000 });
 
   await viewerBody.evaluate(() => window.__hongtangCesium.focusPoint("real-poi-1"));
@@ -307,12 +306,11 @@ await run("Cesium mouse controls preserve orientation, pivot and horizontal plan
   await page.waitForTimeout(900);
   assert(snapshotDistance(panAfter, await snapshot()) < 1e-8);
 });
-await run("six village matters have independent routes and page content", async () => {
+await run("five village matters have independent routes and page content", async () => {
   const topicPages = [
     ["/garden", "小花园", "四季变化", "garden", ["garden"], 35],
     ["/tea-factory", "茶厂", "收茶", "tea", ["tea-factory"], 9],
     ["/water", "村里用水", "维修反馈", "water", ["water-facility"], 2],
-    ["/solar", "光伏设施", "信息公开", "solar", ["solar-facility"], 1],
     ["/safety", "安全隐患", "现场复查", "safety", ["safety-risk"], 1],
     ["/village-history", "村庄记忆", "村民讲述", "history", ["village-memory"], 1],
   ];
@@ -360,7 +358,7 @@ await run("village map groups concrete matters and opens their own pages", async
   for (const group of ["村里的具体事项", "行动与办理", "互助资源", "公共空间与调研资料"]) {
     await filterPanel.getByText(group, { exact: true }).waitFor();
   }
-  for (const label of ["小花园", "茶场", "茶厂", "村里用水设施", "光伏设施", "安全隐患", "村庄记忆"]) {
+  for (const label of ["小花园", "茶场", "茶厂", "村里用水设施", "安全隐患", "村庄记忆"]) {
     await filterPanel.getByText(label, { exact: true }).waitFor();
   }
 
@@ -385,7 +383,6 @@ await run("all routes respond and render headings", async () => {
     "/garden",
     "/tea-factory",
     "/water",
-    "/solar",
     "/safety",
     "/village-history",
     "/goals",
@@ -533,7 +530,7 @@ await run("administrator accepts and assigns an issue", async () => {
 const mobile = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 1, isMobile: true, hasTouch: true, locale: "zh-CN" });
 const mobilePage = await mobile.newPage();
 await run("390px mobile layout has no horizontal overflow", async () => {
-  for (const route of ["/", "/village-overview", "/garden", "/tea-factory", "/water", "/solar", "/safety", "/village-history", "/map", "/village", "/participate", "/projects", "/progress"]) {
+  for (const route of ["/", "/village-overview", "/garden", "/tea-factory", "/water", "/safety", "/village-history", "/map", "/village", "/participate", "/projects", "/progress"]) {
     await mobilePage.goto(`${baseURL}${route}`, { waitUntil: route === "/" ? "domcontentloaded" : "networkidle" });
     const dimensions = await mobilePage.evaluate(() => ({ scrollWidth: document.documentElement.scrollWidth, innerWidth: window.innerWidth }));
     assert(dimensions.scrollWidth <= dimensions.innerWidth + 1, `${route} overflows: ${dimensions.scrollWidth} > ${dimensions.innerWidth}`);
@@ -542,7 +539,7 @@ await run("390px mobile layout has no horizontal overflow", async () => {
   await mobilePage.locator("[data-gaussian-state='ready']").waitFor({ timeout: 120000 });
   await hideDevelopmentUi(mobilePage);
   const mobileCesiumFrame = mobilePage.frameLocator("#hongtang-gaussian-frame");
-  const mobileViewerBody = mobileCesiumFrame.locator("body[data-cesium-ready='true'][data-real-point-count='205']");
+  const mobileViewerBody = mobileCesiumFrame.locator("body[data-cesium-ready='true'][data-real-point-count='211']");
   await mobileViewerBody.waitFor({ timeout: 120000 });
   await mobileViewerBody.evaluate(() => window.__hongtangCesium.selectPoint("real-poi-1"));
   const mobileDetail = mobilePage.locator(".gaussian-home-point-detail");
@@ -580,7 +577,7 @@ await run("capture current Cesium terrain and real-point screenshots", async () 
   await page.goto(baseURL, { waitUntil: "domcontentloaded" });
   await page.locator("[data-gaussian-state='ready']").waitFor({ timeout: 120000 });
   const cesiumFrame = page.frameLocator("#hongtang-gaussian-frame");
-  const viewerBody = cesiumFrame.locator("body[data-cesium-ready='true'][data-real-point-count='205']");
+  const viewerBody = cesiumFrame.locator("body[data-cesium-ready='true'][data-real-point-count='211']");
   await viewerBody.waitFor({ timeout: 120000 });
   const toolbar = cesiumFrame.locator(".scene-tools");
   await toolbar.waitFor();
@@ -614,7 +611,7 @@ await run("capture current Cesium terrain and real-point screenshots", async () 
   await cesiumFrame.locator("#pointFilter").selectOption("garden");
   assert.equal(await viewerBody.getAttribute("data-visible-point-count"), "35");
   await cesiumFrame.locator("#pointFilter").selectOption("all");
-  assert.equal(await viewerBody.getAttribute("data-visible-point-count"), "205");
+  assert.equal(await viewerBody.getAttribute("data-visible-point-count"), "211");
   await viewerBody.evaluate(() => window.__hongtangCesium.selectPoint("real-poi-1"));
   await page.locator(".detail-coordinates").filter({ hasText: "坐标：" }).first().waitFor();
   await hideDevelopmentUi(page);

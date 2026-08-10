@@ -3,6 +3,7 @@
 
 # Next.js
 /.next/
+/.next-stale-geolibre/
 /out/
 /public/local-photos/
 
@@ -21,6 +22,10 @@ pnpm-debug.log*
 
 # local tooling
 .vercel/
+/.agents/
+/.codex/
+/.deploy-source-repo/
+/.deploy-static/
 .DS_Store
 Thumbs.db
 __pycache__/

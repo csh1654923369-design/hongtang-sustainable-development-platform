@@ -1,4 +1,4 @@
-export const gaussianDemoPointIds = ["map-13", "map-14", "map-15", "map-16", "map-17"] as const;
+export const gaussianDemoPointIds = ["map-13", "map-14", "map-15", "map-16", "map-18"] as const;
 export type GaussianDemoPointId = (typeof gaussianDemoPointIds)[number];
 
 export type GaussianPointPayload = {
@@ -15,7 +15,7 @@ export const gaussianDemoPoints: GaussianPointPayload[] = [
   { id: "map-14", categoryLabel: "茶场", shortLabel: "茶", color: "#71803a", eastRatio: -0.08, northRatio: 0.32 },
   { id: "map-15", categoryLabel: "茶厂", shortLabel: "厂", color: "#8b6b32", eastRatio: 0.22, northRatio: 0.18 },
   { id: "map-16", categoryLabel: "村里用水", shortLabel: "水", color: "#3387a0", eastRatio: 0.33, northRatio: -0.14 },
-  { id: "map-17", categoryLabel: "光伏设施", shortLabel: "光", color: "#d6942b", eastRatio: -0.18, northRatio: -0.28 },
+  { id: "map-18", categoryLabel: "安全巡查", shortLabel: "安", color: "#c34e36", eastRatio: -0.18, northRatio: -0.28 },
 ];
 
 export function isGaussianDemoPointId(value: unknown): value is GaussianDemoPointId {

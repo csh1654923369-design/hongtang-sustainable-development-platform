@@ -5,3 +5,6 @@
 *.png binary
 *.webp binary
 *.ico binary
+
+# GeoLibre 自托管目录是上游编译产物，不参与源码空白检查或文本差异比较。
+public/geolibre/** binary

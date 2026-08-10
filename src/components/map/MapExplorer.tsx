@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { CSSProperties } from "react";
-import { Image as ImageIcon, Layers3, ListFilter, Map as MapIcon } from "lucide-react";
+import { Image as ImageIcon, Layers3, ListFilter, Map as MapIcon, Satellite } from "lucide-react";
 import { MapFeatureType, SpatialFeature } from "@/types";
-import { MapFilterPanel, initialMapFilters, MapFilters, verifiedMapFeatureTypes } from "@/components/map/MapFilterPanel";
+import { createInitialMapFilters, MapFilterPanel, MapFilters, verifiedMapFeatureTypes } from "@/components/map/MapFilterPanel";
 import { AmapVillageMap, type VillageOverlayMode } from "@/components/map/AmapVillageMap";
 import { MapDetailDrawer } from "@/components/map/MapDetailDrawer";
 import { WaterSpatialDetail } from "@/components/map/WaterSpatialDetail";
@@ -25,30 +25,46 @@ import {
 } from "@/lib/spatialData";
 import { computeMapBubbleLayout, type MapScreenAnchor } from "@/lib/mapBubble";
 import { fetchPlatformDataset } from "@/lib/platformData";
+import { villageTopicById, type VillageTopicId } from "@/lib/villageTopics";
 
 export function MapExplorer({
   filters: controlledFilters,
   onFiltersChange,
   showFilterControls = true,
+  showBasemapControls = true,
+  overlayMode: controlledOverlayMode,
+  onOverlayModeChange,
+  activeTopic,
+  topicFeatureCount = 0,
+  onTopicClose = () => undefined,
   waterTopicMode = "off",
   onWaterTopicModeChange = () => undefined,
 }: {
   filters?: MapFilters;
   onFiltersChange?: (filters: MapFilters) => void;
   showFilterControls?: boolean;
+  showBasemapControls?: boolean;
+  overlayMode?: VillageOverlayMode;
+  onOverlayModeChange?: (mode: VillageOverlayMode) => void;
+  activeTopic?: VillageTopicId;
+  topicFeatureCount?: number;
+  onTopicClose?: () => void;
   waterTopicMode?: WaterTopicMode;
   onWaterTopicModeChange?: (mode: WaterTopicMode) => void;
 }) {
-  const [localFilters, setLocalFilters] = useState<MapFilters>(initialMapFilters);
+  const [localFilters, setLocalFilters] = useState<MapFilters>(createInitialMapFilters);
   const filters = controlledFilters ?? localFilters;
   const updateFilters = onFiltersChange ?? setLocalFilters;
   const [selected, setSelected] = useState<SpatialFeature>();
   const [waterSelection, setWaterSelection] = useState<WaterSpatialSelection>();
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [overlayMode, setOverlayMode] = useState<VillageOverlayMode>("aerial");
+  const [localOverlayMode, setLocalOverlayMode] = useState<VillageOverlayMode>("aerial");
+  const overlayMode = controlledOverlayMode ?? localOverlayMode;
+  const setOverlayMode = onOverlayModeChange ?? setLocalOverlayMode;
   const [realFeatures, setRealFeatures] = useState<SpatialFeature[]>([]);
   const [waterSystem, setWaterSystem] = useState<WaterSystemData>();
   const [topicRecords, setTopicRecords] = useState<FieldworkTopicRecord[]>([]);
+  const [datasetsReady, setDatasetsReady] = useState(false);
   const [selectionAnchor, setSelectionAnchor] = useState<MapScreenAnchor>();
 
   useEffect(() => {
@@ -75,12 +91,14 @@ export function MapExplorer({
         setRealFeatures(verified);
         setWaterSystem(waterPayload);
         setTopicRecords(recordPayload.records ?? []);
+        setDatasetsReady(true);
       })
       .catch(() => {
         if (!active) return;
         setRealFeatures([]);
         setWaterSystem(undefined);
         setTopicRecords([]);
+        setDatasetsReady(true);
       });
     return () => {
       active = false;
@@ -95,7 +113,7 @@ export function MapExplorer({
     () => filterWaterSystem(waterSystem, waterTopicMode),
     [waterSystem, waterTopicMode],
   );
-  const waterTopicActive = waterTopicMode !== "off";
+  const waterTopicActive = activeTopic === "water" && waterTopicMode !== "off";
   const availableTypes = useMemo(
     () => verifiedMapFeatureTypes.filter((type) =>
       allFeatures.some((feature) => feature.featureType === type),
@@ -184,7 +202,7 @@ export function MapExplorer({
   } as CSSProperties & Record<"--bubble-arrow-y", string>) : undefined;
 
   return (
-    <div className={`map-explorer${waterTopicActive ? " water-topic-active" : ""}${hasSelection ? " detail-open" : ""}`} data-shared-spatial-data="points-lines-polygons" data-water-topic-mode={waterTopicMode}>
+    <div className={`map-explorer${activeTopic ? " village-topic-active" : ""}${waterTopicActive ? " water-topic-active" : ""}${hasSelection ? " detail-open" : ""}`} data-shared-spatial-data="points-lines-polygons" data-active-village-topic={activeTopic ?? "off"} data-water-topic-mode={waterTopicMode}>
       {showFilterControls ? (
         <>
           <div className={`map-filter-mobile ${filtersOpen ? "open" : ""}`}>
@@ -194,18 +212,21 @@ export function MapExplorer({
         </>
       ) : null}
       <div className="map-canvas-wrap">
-        <WaterTopicNavigator data={waterSystem} mode={waterTopicMode} onModeChange={changeWaterTopicMode} />
+        <WaterTopicNavigator data={waterSystem} mode={waterTopicMode} onModeChange={changeWaterTopicMode} topicId={activeTopic} featureCount={topicFeatureCount} onTopicClose={onTopicClose} />
         {showFilterControls ? (
           <div className="map-mobile-toolbar">
             <button className="button button-secondary" onClick={() => setFiltersOpen((value) => !value)}><ListFilter size={17} />专题</button>
             <span>{visibleObjectCount} 个要素</span>
           </div>
         ) : null}
-        <div className="map-basemap-control" aria-label="切换高德底图覆盖层">
-          <button className={overlayMode === "none" ? "active" : ""} onClick={() => setOverlayMode("none")} aria-pressed={overlayMode === "none"}><MapIcon size={16} />高德底图</button>
-          <button className={overlayMode === "aerial" ? "active" : ""} onClick={() => setOverlayMode("aerial")} aria-pressed={overlayMode === "aerial"}><ImageIcon size={16} />无人机影像</button>
-          <button className={overlayMode === "handdrawn" ? "active" : ""} onClick={() => setOverlayMode("handdrawn")} aria-pressed={overlayMode === "handdrawn"}><Layers3 size={16} />手绘图</button>
-        </div>
+        {showBasemapControls ? (
+          <div className="map-basemap-control" aria-label="切换二维地图底图">
+            <button className={overlayMode === "aerial" ? "active" : ""} onClick={() => setOverlayMode("aerial")} aria-pressed={overlayMode === "aerial"}><ImageIcon size={16} />航拍</button>
+            <button className={overlayMode === "handdrawn" ? "active" : ""} onClick={() => setOverlayMode("handdrawn")} aria-pressed={overlayMode === "handdrawn"}><Layers3 size={16} />手绘</button>
+            <button className={overlayMode === "satellite" ? "active" : ""} onClick={() => setOverlayMode("satellite")} aria-pressed={overlayMode === "satellite"}><Satellite size={16} />卫星</button>
+            <button className={overlayMode === "none" ? "active" : ""} onClick={() => setOverlayMode("none")} aria-pressed={overlayMode === "none"}><MapIcon size={16} />底图</button>
+          </div>
+        ) : null}
         <AmapVillageMap
           features={visible}
           selectedId={selected?.id ?? (waterSelection?.type === "node" ? waterSelection.item.id : undefined)}
@@ -218,8 +239,11 @@ export function MapExplorer({
           onSelectionAnchorChange={setSelectionAnchor}
           onBackgroundClick={clearSelection}
         />
-        {!visibleObjectCount ? (
-          <div className="map-empty-overlay"><strong>当前没有显示要素</strong><span>请在“专题”中重新勾选。</span></div>
+        {datasetsReady && !visibleObjectCount ? (
+          <div className="map-empty-overlay">
+            <strong>{activeTopic ? "该专题暂无已核实空间资料" : "当前没有显示要素"}</strong>
+            <span>{activeTopic ? villageTopicById[activeTopic].emptyMessage : "请在“专题”中重新勾选。"}</span>
+          </div>
         ) : null}
         {hasSelection && bubbleLayout ? (
           <div

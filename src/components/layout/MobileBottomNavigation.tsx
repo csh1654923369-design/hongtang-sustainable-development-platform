@@ -11,7 +11,7 @@ const items = [
   { href: "/profile", label: "我的", icon: UserRound },
 ];
 
-const topicRoutes = ["/village-overview", "/garden", "/tea-factory", "/water", "/solar", "/safety", "/village-history"];
+const topicRoutes = ["/village-overview", "/garden", "/tea-factory", "/water", "/safety", "/village-history"];
 
 export function MobileBottomNavigation() {
   const pathname = usePathname();

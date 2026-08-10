@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowRight, Camera, Droplets, History, Leaf, Map, MessageSquareText, ShieldAlert, Sprout, Sun } from "lucide-react";
+import { ArrowRight, Camera, Droplets, History, Leaf, Map, MessageSquareText, ShieldAlert, Sprout } from "lucide-react";
 import { useEffect, useState } from "react";
 import { villageMatters } from "@/data/villageMatters";
 
@@ -9,7 +9,6 @@ const icons = {
   garden: Sprout,
   tea: Leaf,
   water: Droplets,
-  solar: Sun,
   safety: ShieldAlert,
   history: History,
 };

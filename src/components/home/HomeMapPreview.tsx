@@ -23,7 +23,6 @@ const villageMatterTypes = new Set([
   MapFeatureType.TeaGarden,
   MapFeatureType.TeaFactory,
   MapFeatureType.WaterFacility,
-  MapFeatureType.SolarFacility,
   MapFeatureType.SafetyRisk,
   MapFeatureType.VillageMemory,
 ]);

@@ -1,12 +1,11 @@
 import Link from "next/link";
-import { ArrowRight, Droplets, History, Leaf, ShieldAlert, Sprout, Sun } from "lucide-react";
+import { ArrowRight, Droplets, History, Leaf, ShieldAlert, Sprout } from "lucide-react";
 import { villageMatters } from "@/data/villageMatters";
 
 const icons = {
   garden: Sprout,
   tea: Leaf,
   water: Droplets,
-  solar: Sun,
   safety: ShieldAlert,
   history: History,
 };

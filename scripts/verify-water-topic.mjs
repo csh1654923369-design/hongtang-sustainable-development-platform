@@ -22,12 +22,48 @@ page.on("response", (response) => {
 
 await page.goto(baseURL, { waitUntil: "domcontentloaded" });
 await page.locator(".home-experience[data-home-map-mode='2d']").waitFor();
+const brandBox = await page.locator(".home-floating-brand").boundingBox();
+const mapControlsBox = await page.locator(".home-map-controls").boundingBox();
+const viewToggleBox = await page.locator(".home-view-toggle").boundingBox();
+const basemapControl = page.locator(".home-basemap-control");
+const basemapBox = await basemapControl.boundingBox();
+assert(brandBox && mapControlsBox && viewToggleBox && basemapBox);
+assert(viewToggleBox.x > brandBox.x + brandBox.width);
+assert(mapControlsBox.x + mapControlsBox.width > 1420);
+assert(basemapBox.y >= viewToggleBox.y + viewToggleBox.height + 3);
+assert.equal(await basemapControl.getByRole("button").count(), 4);
+assert.equal(await basemapControl.getByRole("button", { name: "底图", exact: true }).count(), 1);
+assert.equal(await basemapControl.evaluate((element) => element.parentElement?.classList.contains("home-map-controls")), true);
+assert(Math.abs(basemapBox.x - viewToggleBox.x) < 1);
+assert(Math.abs(basemapBox.width - viewToggleBox.width) < 1);
+assert(mapControlsBox.width >= 250 && mapControlsBox.width <= 270);
+assert.deepEqual(
+  await basemapControl.getByRole("button").evaluateAll((buttons) => buttons.map((button) => button.textContent?.trim())),
+  ["航拍", "手绘", "卫星", "底图"],
+);
+const basemapButtonBoxes = await basemapControl.getByRole("button").evaluateAll((buttons) => buttons.map((button) => {
+  const box = button.getBoundingClientRect();
+  return { x: box.x, y: box.y, width: box.width };
+}));
+assert(basemapButtonBoxes.every((box) => Math.abs(box.y - basemapButtonBoxes[0].y) < 1));
+assert(basemapButtonBoxes.every((box, index) => index === 0 || box.x > basemapButtonBoxes[index - 1].x));
+assert.equal(await basemapControl.getByRole("button", { name: "航拍", exact: true }).getAttribute("aria-pressed"), "true");
+await basemapControl.getByRole("button", { name: "卫星", exact: true }).click();
+await page.locator(".amap-village-map[data-overlay-mode='satellite']").waitFor();
+assert.equal(await basemapControl.getByRole("button", { name: "卫星", exact: true }).getAttribute("aria-pressed"), "true");
+await page.waitForTimeout(4500);
+await page.screenshot({ path: resolve(outputDir, "map-2d-satellite.png"), fullPage: false });
+await basemapControl.getByRole("button", { name: "航拍", exact: true }).click();
+await page.locator(".amap-village-map[data-overlay-mode='aerial']").waitFor();
 const mapStage = page.locator(".map-geographic-stage");
 const mapFrame = page.locator(".map-geographic-frame");
 const cloudMap = page.locator(".amap-village-map[data-map-provider='amap']");
 const cloudMapReady = await cloudMap.waitFor({ timeout: 15000 }).then(() => true).catch(() => false);
 const visibleMarkerRoot = cloudMapReady ? page.locator(".amap-react-marker-layer") : page.locator(".village-map");
 if (cloudMapReady) {
+  const twoDSceneTools = page.locator(".map-scene-tools .map-scene-tool");
+  assert.equal(await twoDSceneTools.count(), 2);
+  assert.deepEqual(await twoDSceneTools.evaluateAll((buttons) => buttons.map((button) => button.getAttribute("aria-label"))), ["回到中心", "全屏查看"]);
   const marker = page.locator(".amap-react-marker-layer .map-marker").first();
   await marker.waitFor();
   const initialMarker = await marker.boundingBox();
@@ -43,7 +79,7 @@ if (cloudMapReady) {
   assert(Math.abs(draggedMarker.x - initialMarker.x) > 35);
   assert(Math.abs(draggedMarker.y - initialMarker.y) > 20);
   assert.equal(await page.locator(".map-selection-bubble").count(), 0);
-  await page.getByRole("button", { name: "回到红塘", exact: true }).click();
+  await page.getByRole("button", { name: "回到中心", exact: true }).click();
   await page.waitForTimeout(520);
 } else {
   const initialPan = await mapFrame.evaluate((element) => {
@@ -74,18 +110,44 @@ assert.equal(await page.locator(".water-topic-entry").count(), 0);
 const topicLauncher = page.getByRole("button", { name: /^专题/ });
 await topicLauncher.click();
 await sharedFilter.waitFor({ state: "visible" });
+const topicCard = page.locator(".home-topic-card.open");
+await topicCard.waitFor();
+const topicLauncherBox = await topicLauncher.boundingBox();
+const sharedFilterBox = await sharedFilter.boundingBox();
+assert(topicLauncherBox && sharedFilterBox);
+assert(Math.abs(brandBox.width - topicLauncherBox.width) < 1);
+assert(Math.abs(topicLauncherBox.width - sharedFilterBox.width) < 1);
+assert.equal(await topicLauncher.evaluate((element) => element.parentElement?.classList.contains("home-topic-card")), true);
+assert.equal(await sharedFilter.evaluate((element) => element.parentElement?.classList.contains("home-topic-card")), true);
+assert.match(await topicCard.evaluate((element) => getComputedStyle(element).transitionProperty), /grid-template-rows/);
+assert.match(await sharedFilter.evaluate((element) => getComputedStyle(element).transitionProperty), /opacity/);
+assert.equal(await topicCard.evaluate((element) => getComputedStyle(element).transitionDuration.split(",")[0].trim()), "0.24s");
+assert.equal(await topicCard.evaluate((element) => getComputedStyle(element).transitionTimingFunction.split(",")[0].trim()), "ease-in-out");
+assert.equal(await sharedFilter.evaluate((element) => getComputedStyle(element).transform), "none");
+assert.match(await topicLauncher.textContent(), /收起/);
+assert.equal(await sharedFilter.locator(".filter-heading").count(), 0);
+assert.equal(await sharedFilter.getByText("生态资源", { exact: true }).count(), 0);
 await sharedFilter.evaluate((element) => element.setAttribute("data-qa-instance", "kept-across-view-switch"));
 const researchLayer = sharedFilter.locator("input[data-layer-type='research-photo']");
 await researchLayer.uncheck();
 assert.equal(await researchLayer.isChecked(), false);
 const selected2dTypes = (await sharedFilter.getAttribute("data-selected-layer-types"))?.split(",") ?? [];
 assert(!selected2dTypes.includes("research-photo"));
-await sharedFilter.getByRole("button", { name: "关闭专题", exact: true }).click();
+await topicLauncher.click();
+await sharedFilter.waitFor({ state: "hidden" });
+assert.match(await topicLauncher.textContent(), /展开/);
 
 await page.getByRole("button", { name: "3D实景", exact: true }).click();
 await page.locator(".home-experience[data-home-map-mode='3d']").waitFor();
+assert.equal(await page.locator(".home-basemap-control").count(), 0);
 const sharedFrame = page.frameLocator("#hongtang-gaussian-frame");
 await sharedFrame.locator("body[data-selected-point-types]").waitFor({ timeout: 30000 });
+assert.equal(await sharedFrame.locator("#showAllButton").evaluate((element) => getComputedStyle(element).display), "none");
+const settingsToolBox = await sharedFrame.locator("#settingsButton").boundingBox();
+const centerToolBox = await sharedFrame.locator("#centerButton").boundingBox();
+const fullscreenToolBox = await sharedFrame.locator("#fullscreenButton").boundingBox();
+assert(settingsToolBox && centerToolBox && fullscreenToolBox);
+assert(settingsToolBox.y < centerToolBox.y && centerToolBox.y < fullscreenToolBox.y);
 const selected3dGroups = (await sharedFrame.locator("body").getAttribute("data-selected-point-types"))?.split(",") ?? [];
 assert(!selected3dGroups.includes("research"));
 assert.equal(await sharedFrame.locator("#pointFilterPanel").evaluate((element) => getComputedStyle(element).display), "none");
@@ -94,12 +156,15 @@ assert.equal(await researchLayer.isChecked(), false);
 
 await page.getByRole("button", { name: "2D地图", exact: true }).click();
 await page.locator(".home-experience[data-home-map-mode='2d']").waitFor();
+await page.locator(".home-basemap-control").waitFor();
+assert.equal(await page.locator(".home-basemap-control").getByRole("button", { name: "航拍", exact: true }).getAttribute("aria-pressed"), "true");
 await visibleMarkerRoot.locator(".map-marker").first().waitFor();
 assert.equal(await sharedFilter.getAttribute("data-qa-instance"), "kept-across-view-switch");
 assert.equal(await researchLayer.isChecked(), false);
-assert.equal(await visibleMarkerRoot.locator(".map-marker.map-marker-dot").count(), 0);
-await topicLauncher.click();
-await sharedFilter.getByRole("button", { name: "进入村里用水专题", exact: true }).click();
+assert.equal(await visibleMarkerRoot.locator(".map-marker.map-marker-dot").count(), 9);
+const enterWaterTopicButton = sharedFilter.getByRole("button", { name: "进入村里用水专题", exact: true });
+if (!await enterWaterTopicButton.isVisible()) await topicLauncher.click();
+await enterWaterTopicButton.click();
 await page.locator(".map-explorer[data-water-topic-mode='overview']").waitFor();
 await page.getByRole("button", { name: "饮水从哪来", exact: true }).click();
 await page.locator(".map-explorer[data-water-topic-mode='supply']").waitFor();
@@ -109,7 +174,7 @@ assert.equal(await visibleMarkerRoot.locator("[data-feature-id='real-poi-15']").
 assert.equal(await visibleMarkerRoot.locator("[data-feature-id='real-poi-22']").count(), 0);
 assert.equal(await page.locator(".home-water-line").count(), 3);
 assert.equal(await page.locator(".home-water-zone").count(), 3);
-assert.equal(await sharedFilter.evaluate((element) => getComputedStyle(element).display), "none");
+assert.equal(await page.locator(".home-topic-card").evaluate((element) => getComputedStyle(element).display), "none");
 
 await page.locator(".home-water-zone").first().focus();
 await page.keyboard.press("Enter");
@@ -143,6 +208,10 @@ const frame = page.frameLocator("#hongtang-gaussian-frame");
 const viewerBody = frame.locator("body[data-water-topic-mode='supply']");
 await viewerBody.waitFor({ timeout: 30000 });
 await frame.locator("body[data-model-ready='true']").waitFor({ timeout: 30000 });
+assert.equal(await viewerBody.getAttribute("data-spatial-depth-mode"), "terrain-and-3d-tiles");
+assert(Number(await viewerBody.getAttribute("data-spatial-zone-alpha")) >= 0.35);
+assert(Number(await viewerBody.getAttribute("data-spatial-line-alpha")) >= 0.98);
+assert.equal(await viewerBody.getAttribute("data-spatial-occlusion-compensation"), "depth-fail-outline");
 assert.equal(await frame.locator("#pointFilterPanel").evaluate((element) => getComputedStyle(element).display), "none");
 assert(Number(await viewerBody.getAttribute("data-visible-point-count")) >= 11);
 assert.equal(await frame.locator(".map-pin[data-point-id='real-poi-15']:not([hidden])").count(), 0);
@@ -158,7 +227,9 @@ await topicLauncher.waitFor({ state: "visible" });
 await frame.locator("body[data-water-topic-mode='off']").waitFor();
 assert.equal(await sharedFilter.getAttribute("data-qa-instance"), "kept-across-view-switch");
 assert.equal(await researchLayer.isChecked(), false);
-assert.equal(await frame.locator(".map-pin.map-dot:not([hidden])").count(), 0);
+assert.equal(await frame.locator(".map-pin.map-dot[data-point-group='public']").count(), 9);
+assert.equal(await frame.locator(".map-pin.map-dot[data-point-group='ecology']").count(), 0);
+assert.equal(await frame.locator(".map-pin.map-dot[data-point-group='research']:not([hidden])").count(), 0);
 await page.screenshot({ path: resolve(outputDir, "shared-filter-3d.png"), fullPage: false });
 
 await page.setViewportSize({ width: 390, height: 844 });
@@ -182,5 +253,5 @@ if (consoleErrors.length && relevantFailures.length) {
   console.error(JSON.stringify({ consoleErrors, failedResponses: relevantFailures }, null, 2));
   process.exitCode = 1;
 } else {
-  console.log(JSON.stringify({ status: "passed", screenshots: ["map-2d-free-pan.png", "shared-filter-3d.png", "water-topic-2d-supply.png", "water-topic-2d-drainage.png", "water-topic-3d-supply.png", "water-topic-mobile.png"] }, null, 2));
+  console.log(JSON.stringify({ status: "passed", screenshots: ["map-2d-satellite.png", "map-2d-free-pan.png", "shared-filter-3d.png", "water-topic-2d-supply.png", "water-topic-2d-drainage.png", "water-topic-3d-supply.png", "water-topic-mobile.png"] }, null, 2));
 }

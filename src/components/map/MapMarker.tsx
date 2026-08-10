@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties, MouseEvent } from "react";
-import { Building2, CircleParking, Droplets, Factory, Flower2, HandHeart, History, House, Landmark, Leaf, MapPin, PackageSearch, School, ShieldCheck, Sparkles, SunMedium, Toilet, Trash2, TriangleAlert, Users, Wrench } from "lucide-react";
+import { Building2, CircleParking, Droplets, Factory, Flower2, HandHeart, History, House, Landmark, Leaf, MapPin, PackageSearch, School, ShieldCheck, Sparkles, Toilet, Trash2, TriangleAlert, Users, Wrench } from "lucide-react";
 import { SpatialFeature, MapFeatureType } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -10,7 +10,6 @@ const icons = {
   [MapFeatureType.TeaGarden]: Factory,
   [MapFeatureType.TeaFactory]: Factory,
   [MapFeatureType.WaterFacility]: Droplets,
-  [MapFeatureType.SolarFacility]: SunMedium,
   [MapFeatureType.SafetyRisk]: TriangleAlert,
   [MapFeatureType.VillageMemory]: History,
   [MapFeatureType.Issue]: MapPin,
@@ -48,6 +47,12 @@ export type MapMarkerPosition = {
   unit?: "percent" | "pixel";
 };
 
+const supportingPointTypes = new Set<MapFeatureType>([
+  MapFeatureType.PublicService,
+  MapFeatureType.Ecology,
+  MapFeatureType.ResearchPhoto,
+]);
+
 function getPublicServiceIconKey(title: string): PublicServiceIconKey {
   if (/厕所|公厕|卫生间/.test(title)) return "toilet";
   if (/停车/.test(title)) return "parking";
@@ -65,11 +70,11 @@ export function MapMarker({ feature, active, related = false, muted = false, onC
     : icons[feature.featureType];
   const markerPosition = position ?? { x: feature.mapX, y: feature.mapY };
   const positionUnit = markerPosition.unit === "pixel" ? "px" : "%";
-  const isResearchPoint = feature.featureType === MapFeatureType.ResearchPhoto;
-  const markerLabel = isResearchPoint ? "村景记录" : feature.title;
+  const isSupportingPoint = supportingPointTypes.has(feature.featureType);
+  const markerLabel = feature.featureType === MapFeatureType.ResearchPhoto ? "村景记录" : feature.title;
   return (
     <button
-      className={cn("map-marker", isResearchPoint && "map-marker-dot", `marker-${feature.featureType}`, active && "active", related && "related", muted && "relation-muted")}
+      className={cn("map-marker", isSupportingPoint && "map-marker-dot", `marker-${feature.featureType}`, active && "active", related && "related", muted && "relation-muted")}
       style={{
         left: `${markerPosition.x}${positionUnit}`,
         top: `${markerPosition.y}${positionUnit}`,
@@ -82,8 +87,9 @@ export function MapMarker({ feature, active, related = false, muted = false, onC
       title={markerLabel}
       data-feature-id={feature.id}
       data-feature-type={feature.featureType}
+      data-marker-shape={isSupportingPoint ? "dot" : "pin"}
     >
-      {isResearchPoint ? (
+      {isSupportingPoint ? (
         <span className="map-marker-dot-core" aria-hidden="true" />
       ) : (
         <>

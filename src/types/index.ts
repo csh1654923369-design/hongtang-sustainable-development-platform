@@ -36,7 +36,6 @@ export enum MapFeatureType {
   TeaGarden = "tea-garden",
   TeaFactory = "tea-factory",
   WaterFacility = "water-facility",
-  SolarFacility = "solar-facility",
   SafetyRisk = "safety-risk",
   VillageMemory = "village-memory",
   Issue = "issue",

@@ -56,7 +56,7 @@ async function findTopmostMarker() {
   });
 }
 
-const modes = ["高德底图", "无人机影像", "手绘图"];
+const modes = ["航拍", "手绘", "卫星", "底图"];
 let successfulClicks = 0;
 for (const mode of modes) {
   await page.getByRole("button", { name: mode, exact: true }).click();
@@ -83,6 +83,6 @@ for (const mode of modes) {
 await page.screenshot({ path: resolve(outputDir, "map-2d-marker-crispness.png"), fullPage: false });
 await browser.close();
 
-assert.equal(successfulClicks, 12);
+assert.equal(successfulClicks, 16);
 assert.equal(consoleErrors.length, 0, JSON.stringify(consoleErrors, null, 2));
 console.log(JSON.stringify({ status: "passed", successfulClicks, screenshot: "map-2d-marker-crispness.png" }, null, 2));

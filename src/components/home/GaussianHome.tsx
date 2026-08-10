@@ -4,12 +4,13 @@ import { Box, LoaderCircle, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { MapDetailDrawer } from "@/components/map/MapDetailDrawer";
-import { initialMapFilters, mapFeatureTypeToFilterGroup, type MapFilters } from "@/components/map/MapFilterPanel";
+import { initialMapFilters, mapFeatureTypeToFilterGroup, verifiedMapFeatureTypes, type MapFilters } from "@/components/map/MapFilterPanel";
 import { WaterSpatialDetail } from "@/components/map/WaterSpatialDetail";
 import { WaterTopicNavigator } from "@/components/map/WaterTopicNavigator";
 import { MapFeatureType, type SpatialFeature } from "@/types";
 import { computeMapBubbleLayout, isMapScreenAnchor, type MapScreenAnchor } from "@/lib/mapBubble";
 import { fetchPlatformDataset } from "@/lib/platformData";
+import type { VillageTopicId } from "@/lib/villageTopics";
 import {
   FieldworkTopicRecord,
   TopicRecordPayload,
@@ -32,10 +33,16 @@ type SentState = { target: Window; signature: string };
 
 export function GaussianHome({
   filters = initialMapFilters,
+  activeTopic,
+  topicFeatureCount = 0,
+  onTopicClose = () => undefined,
   waterTopicMode = "off",
   onWaterTopicModeChange = () => undefined,
 }: {
   filters?: MapFilters;
+  activeTopic?: VillageTopicId;
+  topicFeatureCount?: number;
+  onTopicClose?: () => void;
   waterTopicMode?: WaterTopicMode;
   onWaterTopicModeChange?: (mode: WaterTopicMode) => void;
 }) {
@@ -143,7 +150,11 @@ export function GaussianHome({
     ])
       .then(([mapPayload, waterPayload, recordPayload]) => {
         if (!active) return;
-        setRealFeatures(Array.isArray(mapPayload.features) ? mapPayload.features : []);
+        setRealFeatures(Array.isArray(mapPayload.features)
+          ? mapPayload.features.filter((feature) =>
+              verifiedMapFeatureTypes.includes(feature.featureType as (typeof verifiedMapFeatureTypes)[number]),
+            )
+          : []);
         setWaterSystem(waterPayload);
         setTopicRecords(recordPayload?.records ?? []);
       })
@@ -306,15 +317,16 @@ export function GaussianHome({
 
   return (
     <main
-      className={`gaussian-home${hasSelection ? " detail-open" : ""}`}
+      className={`gaussian-home${activeTopic ? " village-topic-active" : ""}${hasSelection ? " detail-open" : ""}`}
       data-gaussian-state={state}
       data-viewer-engine="cesiumjs"
       data-real-point-count={realFeatures.length}
       data-map-element-count={mapFeatures.length + (waterSystem?.lines.length ?? 0) + (waterSystem?.zones.length ?? 0)}
       data-shared-spatial-data="points-lines-polygons"
+      data-active-village-topic={activeTopic ?? "off"}
       data-water-topic-mode={waterTopicMode}
     >
-      <WaterTopicNavigator data={waterSystem} mode={waterTopicMode} onModeChange={changeWaterTopicMode} />
+      <WaterTopicNavigator data={waterSystem} mode={waterTopicMode} onModeChange={changeWaterTopicMode} topicId={activeTopic} featureCount={topicFeatureCount} onTopicClose={onTopicClose} />
       <iframe
         id="hongtang-gaussian-frame"
         ref={frameRef}

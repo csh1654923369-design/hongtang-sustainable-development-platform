@@ -202,6 +202,8 @@
       gap: 9px;
       transition: right .2s ease;
     }
+    #settingsButton { order: -1; }
+    #showAllButton { display: none; }
     body.detail-open .scene-tools { right: 18px; }
     .scene-tool {
       position: relative;
@@ -358,6 +360,8 @@
   data-poi-pin-hit-area="42x52"
   data-research-point-renderer="circle"
   data-research-point-count="0"
+  data-supporting-point-renderer="circle"
+  data-supporting-point-count="0"
   data-sensitivity-range="0.3-2.0"
   data-pan-sensitivity-default="1.0"
   data-orbit-sensitivity-default="1.0"
@@ -451,6 +455,10 @@
       const pointEntities = new Map();
       const pointsById = new Map();
       const spatialEntities = new Map();
+      const spatialZoneColor = "#0b6f87";
+      const spatialZoneBorderColor = "#075b72";
+      const spatialZoneBaseAlpha = .36;
+      const spatialLineBaseAlpha = .98;
       let viewer;
       let tileset;
       let terrainProvider;
@@ -504,15 +512,19 @@
         if (featureType === "garden") return "garden";
         if (featureType === "tea-garden" || featureType === "tea-factory") return "tea";
         if (featureType === "water-facility" || featureType === "water") return "water";
-        if (featureType === "public-service" || featureType === "safety-risk" || featureType === "solar-facility") return "public";
+        if (featureType === "safety-risk") return "safety";
+        if (featureType === "village-memory" || featureType === "culture") return "history";
+        if (featureType === "public-service") return "public";
         if (featureType === "research-photo") return "research";
         return "ecology";
       };
 
       const pointCategoryLabels = {
         garden: "小花园",
-        tea: "茶厂",
+        tea: "茶产业",
         water: "村里用水",
+        safety: "塌方与安全",
+        history: "历史与文化",
         public: "公共服务设施",
         ecology: "生态资源",
         research: "村景记录",
@@ -531,12 +543,16 @@
         house: '<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/>',
         building: '<path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18ZM6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2M10 6h4M10 10h4M10 14h4M10 18h4"/>',
         leaf: '<path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>',
+        alert: '<path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4M12 17h.01"/>',
+        history: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l4 2"/>',
       };
 
       const pinSymbolName = (point) => {
         if (point.featureType === "garden") return "flower";
         if (point.featureType === "tea-garden" || point.featureType === "tea-factory") return "factory";
         if (point.featureType === "water-facility" || point.featureType === "water") return "droplets";
+        if (point.featureType === "safety-risk") return "alert";
+        if (point.featureType === "village-memory" || point.featureType === "culture") return "history";
         if (point.featureType === "ecology") return "leaf";
         const title = point.title || "";
         if (/厕所|公厕|卫生间/.test(title)) return "toilet";
@@ -553,7 +569,9 @@
       const pinColor = (group, fallback) => fallback || ({
         garden: "#4f8d55",
         tea: "#9a7138",
-        water: "#3387a0",
+        water: "#39758a",
+        safety: "#b65a43",
+        history: "#7b5c8e",
         public: "#4e80a0",
         ecology: "#2f6b4f",
         research: "#a26789",
@@ -570,16 +588,18 @@
 
       const createPinMarker = (point, group, color) => {
         const marker = document.createElement("button");
+        const isSupportingPoint = group === "public" || group === "ecology" || group === "research";
         marker.type = "button";
-        marker.className = group === "research" ? "map-pin map-dot" : "map-pin";
+        marker.className = isSupportingPoint ? "map-pin map-dot" : "map-pin";
         marker.dataset.pointId = point.id;
         marker.dataset.pointGroup = group;
-        const symbolName = pinSymbolName(point);
-        marker.dataset.pinSymbol = symbolName;
+        marker.dataset.markerShape = isSupportingPoint ? "dot" : "pin";
+        const symbolName = isSupportingPoint ? "" : pinSymbolName(point);
+        if (symbolName) marker.dataset.pinSymbol = symbolName;
         const markerLabel = group === "research" ? "村景记录" : point.title || "地点";
         marker.setAttribute("aria-label", `查看${markerLabel}`);
         marker.style.setProperty("--pin-color", color);
-        const visual = group === "research"
+        const visual = isSupportingPoint
           ? '<span class="map-dot-core" aria-hidden="true"></span>'
           : `<svg viewBox="0 0 84 104" role="img" aria-hidden="true" focusable="false">
               <path class="map-pin-shape" d="M42 101C35 88 7 65 7 42A35 35 0 1 1 77 42C77 65 49 88 42 101Z"></path>
@@ -911,6 +931,14 @@
         return picked?.id?.hongtangSpatialId;
       };
 
+      const spatialLineMaterial = (color, alpha, outlineAlpha = .88) => (
+        new Cesium.PolylineOutlineMaterialProperty({
+          color: Cesium.Color.fromCssColorString(color).withAlpha(alpha),
+          outlineColor: Cesium.Color.WHITE.withAlpha(outlineAlpha),
+          outlineWidth: 1.35,
+        })
+      );
+
       const setSpatialAppearance = (id) => {
         const entry = spatialEntities.get(id);
         if (!entry) return;
@@ -918,10 +946,18 @@
         const related = relatedWaterIds.has(id);
         const muted = relatedWaterIds.size > 0 && !related;
         if (entry.type === "zone") {
-          entry.entity.polygon.material = Cesium.Color.fromCssColorString("#39758a").withAlpha(active ? .46 : related ? .32 : muted ? .05 : .18);
+          const fillAlpha = active ? .62 : related ? .5 : muted ? .08 : spatialZoneBaseAlpha;
+          const borderAlpha = active ? 1 : related ? .98 : muted ? .2 : .96;
+          entry.entity.polygon.material = Cesium.Color.fromCssColorString(spatialZoneColor).withAlpha(fillAlpha);
+          entry.borderEntity.polyline.width = active ? 6.4 : related ? 5.2 : 4.2;
+          entry.borderEntity.polyline.material = spatialLineMaterial(spatialZoneBorderColor, borderAlpha, muted ? .16 : .95);
+          entry.borderEntity.polyline.depthFailMaterial = spatialLineMaterial(spatialZoneBorderColor, borderAlpha, muted ? .16 : .98);
         } else {
-          entry.entity.polyline.width = active ? entry.baseWidth + 2.4 : related ? entry.baseWidth + 1.2 : entry.baseWidth;
-          entry.entity.polyline.material = Cesium.Color.fromCssColorString(entry.color).withAlpha(active ? 1 : related ? 1 : muted ? .16 : .94);
+          const alpha = active ? 1 : related ? 1 : muted ? .2 : spatialLineBaseAlpha;
+          const outlineAlpha = muted ? .2 : active ? 1 : .9;
+          entry.entity.polyline.width = active ? entry.baseWidth + 2.8 : related ? entry.baseWidth + 1.5 : entry.baseWidth;
+          entry.entity.polyline.material = spatialLineMaterial(entry.color, alpha, outlineAlpha);
+          entry.entity.polyline.depthFailMaterial = spatialLineMaterial(entry.color, alpha, outlineAlpha);
         }
       };
 
@@ -1017,11 +1053,16 @@
       const setSpatialLayers = (data) => {
         waterSystemPayload = data;
         if (!viewer || !data) return;
-        spatialEntities.forEach((entry) => viewer.entities.remove(entry.entity));
+        spatialEntities.forEach((entry) => {
+          viewer.entities.remove(entry.entity);
+          (entry.auxiliaryEntities || []).forEach((entity) => viewer.entities.remove(entity));
+        });
         spatialEntities.clear();
         selectedSpatialId = undefined;
         const register = (id, entry) => {
-          entry.entity.hongtangSpatialId = id;
+          [entry.entity, ...(entry.auxiliaryEntities || [])].forEach((entity) => {
+            entity.hongtangSpatialId = id;
+          });
           entry.visible = true;
           spatialEntities.set(id, entry);
           const [longitude, latitude] = entry.anchorDegrees;
@@ -1051,30 +1092,54 @@
           );
         };
         (Array.isArray(data.zones) ? data.zones : []).forEach((zone) => {
+          const borderPath = zone.polygon.length
+            ? [...zone.polygon, zone.polygon[0]]
+            : [];
           const polygon = terrainReady
             ? {
                 hierarchy: spatialPositions(zone.polygon),
-                material: Cesium.Color.fromCssColorString("#39758a").withAlpha(.18),
+                material: Cesium.Color.fromCssColorString(spatialZoneColor).withAlpha(spatialZoneBaseAlpha),
                 classificationType: Cesium.ClassificationType.BOTH,
                 zIndex: 1,
               }
             : {
                 hierarchy: spatialPositions(zone.polygon, 2),
-                material: Cesium.Color.fromCssColorString("#39758a").withAlpha(.18),
+                material: Cesium.Color.fromCssColorString(spatialZoneColor).withAlpha(spatialZoneBaseAlpha),
                 perPositionHeight: true,
               };
           const entity = viewer.entities.add({
             id: `hongtang-spatial-${zone.id}`,
             polygon,
           });
-          register(zone.id, { entity, type: "zone", item: zone, anchorDegrees: spatialCenter(zone.polygon) });
+          const borderEntity = viewer.entities.add({
+            id: `hongtang-spatial-${zone.id}-border`,
+            polyline: {
+              positions: spatialPositions(borderPath, 5),
+              width: 4.2,
+              material: spatialLineMaterial(spatialZoneBorderColor, .96, .95),
+              depthFailMaterial: spatialLineMaterial(spatialZoneBorderColor, .98, .98),
+              clampToGround: terrainReady,
+              classificationType: terrainReady
+                ? Cesium.ClassificationType.BOTH
+                : undefined,
+              zIndex: 3,
+            },
+          });
+          register(zone.id, {
+            entity,
+            borderEntity,
+            auxiliaryEntities: [borderEntity],
+            type: "zone",
+            item: zone,
+            anchorDegrees: spatialCenter(zone.polygon),
+          });
         });
         const lineStyle = {
-          "supply-main": { color: "#176d91", width: 5 },
-          "supply-branch": { color: "#45a7c4", width: 3.8 },
-          "main-drain": { color: "#2f7fa8", width: 4.2 },
-          outlet: { color: "#1d4e89", width: 5 },
-          "branch-drain": { color: "#6ba6c4", width: 3.2 },
+          "supply-main": { color: "#00658a", width: 6.5 },
+          "supply-branch": { color: "#0586a8", width: 5 },
+          "main-drain": { color: "#0a6d9c", width: 5.8 },
+          outlet: { color: "#164a84", width: 6.3 },
+          "branch-drain": { color: "#3b86ad", width: 4.6 },
         };
         (Array.isArray(data.lines) ? data.lines : []).forEach((line) => {
           const style = lineStyle[line.kind] || lineStyle["branch-drain"];
@@ -1083,7 +1148,8 @@
             polyline: {
               positions: spatialPositions(line.path, 4),
               width: style.width,
-              material: Cesium.Color.fromCssColorString(style.color).withAlpha(.94),
+              material: spatialLineMaterial(style.color, spatialLineBaseAlpha),
+              depthFailMaterial: spatialLineMaterial(style.color, 1, .96),
               clampToGround: terrainReady,
               classificationType: terrainReady
                 ? Cesium.ClassificationType.BOTH
@@ -1103,6 +1169,10 @@
         body.dataset.spatialVectorCount = String(spatialEntities.size);
         body.dataset.waterZoneCount = String(Array.isArray(data.zones) ? data.zones.length : 0);
         body.dataset.waterLineCount = String(Array.isArray(data.lines) ? data.lines.length : 0);
+        body.dataset.spatialDepthMode = "terrain-and-3d-tiles";
+        body.dataset.spatialZoneAlpha = String(spatialZoneBaseAlpha);
+        body.dataset.spatialLineAlpha = String(spatialLineBaseAlpha);
+        body.dataset.spatialOcclusionCompensation = "depth-fail-outline";
         renderPointFilters();
         applyPointFilter();
         viewer.scene.requestRender();
@@ -1344,6 +1414,9 @@
           const visible = waterVisible && (!topicActive || matchesMode(entry.item.system || "both"));
           entry.visible = visible;
           entry.entity.show = visible;
+          (entry.auxiliaryEntities || []).forEach((entity) => {
+            entity.show = visible;
+          });
           if (visible) visibleCount += 1;
         });
         if ((!waterVisible || (selectedSpatialId && !spatialEntities.get(selectedSpatialId)?.visible)) && selectedSpatialId) clearSpatial();
@@ -1472,6 +1545,7 @@
         });
         body.dataset.realPointCount = String(pointPayload.length);
         body.dataset.researchPointCount = String(pointPayload.filter((point) => categoryGroup(point.featureType) === "research").length);
+        body.dataset.supportingPointCount = String(pointPayload.filter((point) => ["public", "ecology", "research"].includes(categoryGroup(point.featureType))).length);
         renderPointFilters();
         applyPointFilter();
         void updatePointWorldPositions(nextSignature);

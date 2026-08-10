@@ -1,4 +1,4 @@
-export type VillageMatterIcon = "garden" | "tea" | "water" | "solar" | "safety" | "history";
+export type VillageMatterIcon = "garden" | "tea" | "water" | "safety" | "history";
 
 export interface VillageMatter {
   id: string;
@@ -45,17 +45,6 @@ export const villageMatters: VillageMatter[] = [
     recordItems: ["供水设施的位置和状态", "停水、漏水或水质问题", "维修时间、负责人和处理结果"],
     relatedHref: "/water",
     relatedLabel: "进入村里用水",
-  },
-  {
-    id: "solar",
-    title: "光伏设施",
-    subtitle: "在哪里、运行得怎么样",
-    icon: "solar",
-    description: "记录村里的光伏设施分布、日常运行和维护情况，帮助大家理解设施带来的收益与变化。",
-    latestUpdate: "本月示范记录：光伏点位核对和设施外观巡查。",
-    recordItems: ["设施安装位置和数量", "是否正常运行、是否需要维护", "收益用途和公开说明"],
-    relatedHref: "/solar",
-    relatedLabel: "进入光伏设施",
   },
   {
     id: "safety",

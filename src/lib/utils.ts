@@ -38,7 +38,6 @@ export const mapFeatureLabels: Record<MapFeatureType, string> = {
   [MapFeatureType.TeaGarden]: "茶场",
   [MapFeatureType.TeaFactory]: "茶厂",
   [MapFeatureType.WaterFacility]: "村里用水",
-  [MapFeatureType.SolarFacility]: "光伏设施",
   [MapFeatureType.SafetyRisk]: "安全隐患",
   [MapFeatureType.VillageMemory]: "村庄记忆",
   [MapFeatureType.Issue]: "村庄问题",

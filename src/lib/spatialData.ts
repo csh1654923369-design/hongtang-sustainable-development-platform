@@ -1,6 +1,6 @@
 import { MapFeatureType, SpatialFeature } from "@/types";
 
-export type FieldworkModuleId = "garden" | "water" | "tea";
+export type FieldworkModuleId = "garden" | "water" | "tea" | "safety" | "history";
 export type WaterNodeKind = "source" | "storage" | "supply" | "treatment";
 export type WaterLineKind = "supply-main" | "supply-branch" | "main-drain" | "outlet" | "branch-drain";
 export type WaterSystemBranch = "supply" | "drainage" | "both";
