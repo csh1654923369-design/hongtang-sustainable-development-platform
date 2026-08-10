@@ -7,9 +7,13 @@ export default defineConfig([
   ...nextTypeScript,
   globalIgnores([
     ".next/**",
+    ".next-stale-geolibre/**",
+    ".deploy-source-repo/**",
+    ".deploy-static/**",
     "out/**",
     "build/**",
     "next-env.d.ts",
+    "public/geolibre/**",
     "public/gaussian-viewer/vendor/**",
     "public/vendor/cesium/**",
   ]),
