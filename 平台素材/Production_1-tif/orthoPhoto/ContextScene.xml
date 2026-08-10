@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ContextScene version="3.0">
+	<SpatialReferenceSystems>
+		<SRS id="0">
+			<Definition>EPSG:32647</Definition>
+		</SRS>
+	</SpatialReferenceSystems>
+	<PhotoCollection>
+		<SRSId>0</SRSId>
+		<Devices>
+			<Device id="0">
+				<Type>orthotile</Type>
+				<Dimensions>
+					<width>25177</width>
+					<height>26651</height>
+				</Dimensions>
+				<Band>Visible</Band>
+				<PixelSize>
+					<Width>0.04</Width>
+					<Height>-0.04</Height>
+				</PixelSize>
+				<NoData>-9999</NoData>
+			</Device>
+		</Devices>
+		<Photos>
+			<Photo id="0">
+				<ImagePath>0:Production_1-tif_ortho_merge.tif</ImagePath>
+				<DeviceId>0</DeviceId>
+				<Location>
+					<UlX>591299.968642203</UlX>
+					<UlY>2725543.02059454</UlY>
+				</Location>
+				<DepthPath>0:Production_1-tif_DSM_merge.tif</DepthPath>
+			</Photo>
+		</Photos>
+	</PhotoCollection>
+	<References>
+		<Reference id="0">
+			<Path>D:/Models/CC_model/hongtang/Productions/Production_1-tif</Path>
+		</Reference>
+	</References>
+</ContextScene>

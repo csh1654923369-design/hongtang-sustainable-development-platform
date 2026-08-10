@@ -1,0 +1,1 @@
+import{a as e,i as l,n as r,o as a,r as o,t as s}from"./xyz-url-BBnOX50F.js";export{s as createXyzTileUrlTemplate,r as hasXyzTilePlaceholders,o as normalizeTileUrlTemplate,l as registerXyzTileProtocol,e as resolveProjectXyzLayers,a as resolveXyzTileUrlTemplate};

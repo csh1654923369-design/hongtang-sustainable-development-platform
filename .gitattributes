@@ -1,7 +1,26 @@
-* text=auto eol=lf
-
-*.jpeg binary
-*.jpg binary
-*.png binary
-*.webp binary
-*.ico binary
+# 大型二进制素材交由 Git LFS 管理，源码目录仍使用普通 Git。
+平台素材/**/*.tif filter=lfs diff=lfs merge=lfs -text
+平台素材/**/*.tiff filter=lfs diff=lfs merge=lfs -text
+平台素材/**/*.ply filter=lfs diff=lfs merge=lfs -text
+平台素材/**/*.rad filter=lfs diff=lfs merge=lfs -text
+平台素材/**/*.radc filter=lfs diff=lfs merge=lfs -text
+平台素材/**/*.splat filter=lfs diff=lfs merge=lfs -text
+平台素材/**/*.spz filter=lfs diff=lfs merge=lfs -text
+平台素材/**/*.glb filter=lfs diff=lfs merge=lfs -text
+平台素材/**/*.gltf filter=lfs diff=lfs merge=lfs -text
+平台素材/**/*.bin filter=lfs diff=lfs merge=lfs -text
+平台素材/**/*.b3dm filter=lfs diff=lfs merge=lfs -text
+平台素材/**/*.png filter=lfs diff=lfs merge=lfs -text
+平台素材/**/*.jpg filter=lfs diff=lfs merge=lfs -text
+平台素材/**/*.jpeg filter=lfs diff=lfs merge=lfs -text
+平台素材/**/*.webp filter=lfs diff=lfs merge=lfs -text
+平台素材/**/*.mp4 filter=lfs diff=lfs merge=lfs -text
+平台素材/**/*.mov filter=lfs diff=lfs merge=lfs -text
+平台素材/**/*.wav filter=lfs diff=lfs merge=lfs -text
+平台素材/**/*.mp3 filter=lfs diff=lfs merge=lfs -text
+平台素材/**/*.zip filter=lfs diff=lfs merge=lfs -text
+平台素材/**/*.7z filter=lfs diff=lfs merge=lfs -text
+平台素材/**/*.gz filter=lfs diff=lfs merge=lfs -text
+平台素材/**/*.xlsx filter=lfs diff=lfs merge=lfs -text
+平台素材/**/*.xls filter=lfs diff=lfs merge=lfs -text
+平台素材/**/*.part* filter=lfs diff=lfs merge=lfs -text

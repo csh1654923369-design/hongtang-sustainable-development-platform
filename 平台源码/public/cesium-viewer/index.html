@@ -1,0 +1,2081 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>红塘村三维地形实景</title>
+  <link rel="stylesheet" href="/vendor/cesium/Widgets/widgets.css" />
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+      --panel: rgba(18, 30, 25, .88);
+      --line: rgba(255, 255, 255, .18);
+      --text: #f7fbf8;
+      --muted: #c8d3cc;
+      --accent: #b45739;
+    }
+    * { box-sizing: border-box; }
+    html, body, #cesiumContainer { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #13211a; }
+    button, select, input { font: inherit; }
+    .cesium-viewer-bottom { right: 66px; }
+    .point-overlay {
+      position: fixed;
+      z-index: 12;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+    }
+    .map-pin {
+      --pin-color: #b45739;
+      --point-scale: 1;
+      --pin-visual-width: 38px;
+      --pin-visual-height: 47px;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 42px;
+      height: 52px;
+      margin: 0;
+      padding: 0;
+      color: var(--pin-color);
+      border: 0;
+      outline: 0;
+      background: transparent;
+      cursor: pointer;
+      pointer-events: none;
+      transform: translate3d(-50%, -100%, 0) scale(var(--point-scale));
+      transform-origin: 50% 100%;
+      will-change: left, top, transform;
+    }
+    .map-pin[hidden] { display: none; }
+    .map-pin svg {
+      display: block;
+      position: absolute;
+      left: 50%;
+      bottom: 0;
+      width: var(--pin-visual-width);
+      height: var(--pin-visual-height);
+      overflow: visible;
+      transform: translateX(-50%);
+      filter: drop-shadow(0 2px 2px rgba(0, 0, 0, .38));
+      shape-rendering: geometricPrecision;
+      text-rendering: geometricPrecision;
+    }
+    .map-pin-shape {
+      fill: currentColor;
+      stroke: rgba(255, 255, 255, .98);
+      stroke-width: 4;
+      stroke-linejoin: round;
+      vector-effect: non-scaling-stroke;
+    }
+    .map-pin-core { fill: rgba(255, 255, 255, .98); }
+    .map-pin-symbol {
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.9;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .map-pin-label {
+      position: absolute;
+      left: 50%;
+      bottom: calc(100% + 7px);
+      display: none;
+      width: max-content;
+      max-width: 230px;
+      padding: 6px 9px;
+      color: #fff;
+      border: 1px solid rgba(255, 255, 255, .28);
+      border-radius: 7px;
+      background: rgba(24, 42, 33, .92);
+      box-shadow: 0 5px 15px rgba(0, 0, 0, .22);
+      font-size: 13px;
+      font-weight: 600;
+      line-height: 1.25;
+      white-space: nowrap;
+      transform: translateX(-50%);
+    }
+    .map-pin.is-hovered .map-pin-label,
+    .map-pin.is-active .map-pin-label { display: block; }
+    .map-pin:focus-visible svg { filter: drop-shadow(0 0 4px rgba(255, 255, 255, .95)); }
+    .map-pin.map-dot {
+      width: 10px;
+      height: 10px;
+      transform: translate3d(-50%, -50%, 0) scale(var(--point-scale));
+      transform-origin: 50% 50%;
+    }
+    .map-dot-core {
+      display: block;
+      width: 100%;
+      height: 100%;
+      border: 1.5px solid rgba(255, 255, 255, .96);
+      border-radius: 50%;
+      background: currentColor;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, .48);
+    }
+    .map-pin.map-dot.is-active .map-dot-core {
+      box-shadow: 0 0 0 3px rgba(255, 255, 255, .82), 0 2px 7px rgba(0, 0, 0, .5);
+    }
+    .map-pin.is-related:not(.is-active) { filter: drop-shadow(0 0 7px rgba(121, 213, 239, .96)); }
+    .map-pin.relation-muted { opacity: .2; }
+    .map-pin.map-dot .map-pin-label { bottom: calc(100% + 8px); }
+    .point-filter {
+      position: fixed;
+      z-index: 20;
+      top: 18px;
+      left: 18px;
+      display: flex;
+      width: min(230px, calc(100vw - 36px));
+      flex-direction: column;
+      align-items: stretch;
+      gap: 8px;
+      padding: 11px;
+      color: var(--text);
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: var(--panel);
+      box-shadow: 0 8px 26px rgba(0,0,0,.2);
+      backdrop-filter: blur(14px);
+    }
+    .point-filter-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .point-filter strong { white-space: nowrap; font-size: 14px; }
+    .point-filter-actions { display: flex; align-items: center; gap: 3px; }
+    .point-filter-actions button {
+      border: 0;
+      border-radius: 6px;
+      padding: 3px 6px;
+      color: rgba(255,255,255,.78);
+      background: transparent;
+      font-size: 11px;
+      cursor: pointer;
+    }
+    .point-filter-actions button:hover,
+    .point-filter-actions button:focus-visible {
+      color: #fff;
+      background: rgba(255,255,255,.12);
+      outline: none;
+    }
+    .point-filter-list { display: grid; gap: 3px; }
+    .point-filter-option {
+      display: grid;
+      grid-template-columns: 18px 1fr auto;
+      align-items: center;
+      gap: 7px;
+      min-height: 30px;
+      padding: 4px 7px;
+      border-radius: 8px;
+      color: rgba(255,255,255,.9);
+      font-size: 12px;
+      cursor: pointer;
+    }
+    .point-filter-option:hover { background: rgba(255,255,255,.09); }
+    .point-filter-option input {
+      width: 15px;
+      height: 15px;
+      margin: 0;
+      accent-color: #72a883;
+    }
+    .point-filter-option i {
+      min-width: 24px;
+      color: rgba(255,255,255,.62);
+      font-size: 11px;
+      font-style: normal;
+      text-align: right;
+    }
+    .point-filter-toggle { display: none; }
+    .point-filter-close { display: none; }
+    body.water-topic-active .point-filter,
+    body.water-topic-active .point-filter-toggle { display: none !important; }
+    .scene-tools {
+      position: fixed;
+      z-index: 25;
+      right: 18px;
+      bottom: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 9px;
+      transition: right .2s ease;
+    }
+    #settingsButton { order: -1; }
+    #showAllButton { display: none; }
+    body.detail-open .scene-tools { right: 18px; }
+    .scene-tool {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: 44px;
+      height: 44px;
+      color: var(--text);
+      border: 1px solid var(--line);
+      border-radius: 13px;
+      background: var(--panel);
+      cursor: pointer;
+      box-shadow: 0 8px 24px rgba(0,0,0,.22);
+      backdrop-filter: blur(14px);
+    }
+    .scene-tool:hover, .scene-tool:focus-visible { background: rgba(56, 89, 72, .96); outline: none; }
+    .scene-tool::before {
+      content: attr(data-tooltip);
+      position: absolute;
+      top: 50%;
+      right: 52px;
+      padding: 6px 9px;
+      color: #fff;
+      border-radius: 7px;
+      background: rgba(13, 23, 18, .92);
+      font-size: 12px;
+      line-height: 1;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transform: translate(6px, -50%);
+      transition: .15s ease;
+    }
+    .scene-tool:hover::before, .scene-tool:focus-visible::before { opacity: 1; transform: translate(0, -50%); }
+    .scene-tool svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .settings-panel {
+      position: fixed;
+      z-index: 24;
+      right: 72px;
+      bottom: 63px;
+      width: min(292px, calc(100vw - 96px));
+      padding: 16px;
+      color: var(--text);
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: rgba(18, 30, 25, .94);
+      box-shadow: 0 16px 44px rgba(0,0,0,.3);
+      backdrop-filter: blur(18px);
+    }
+    .settings-panel[hidden] { display: none; }
+    .settings-panel h2 { margin: 0 0 13px; font-size: 16px; }
+    .setting-row { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-top: 13px; color: var(--muted); font-size: 13px; }
+    .setting-row input { grid-column: 1 / -1; width: 100%; accent-color: var(--accent); }
+    .setting-row select { grid-column: 1 / -1; height: 34px; color: var(--text); border: 1px solid var(--line); border-radius: 8px; background: rgba(255,255,255,.08); padding: 0 8px; }
+    .setting-row option { color: #203229; background: #fff; }
+    .control-hint { margin: 14px 0 0; color: #abbab1; font-size: 12px; line-height: 1.7; }
+    .viewer-status {
+      position: fixed;
+      z-index: 15;
+      left: 18px;
+      bottom: 18px;
+      max-width: min(410px, calc(100vw - 100px));
+      padding: 8px 11px;
+      color: var(--text);
+      border: 1px solid var(--line);
+      border-radius: 9px;
+      background: rgba(18, 30, 25, .78);
+      font-size: 12px;
+      pointer-events: none;
+      backdrop-filter: blur(10px);
+    }
+    .viewer-status.ready { display: none; }
+    .viewer-status.error { color: #ffd7cd; border-color: rgba(255, 138, 107, .5); }
+    @media (max-width: 680px) {
+      .point-filter-toggle {
+        position: fixed;
+        z-index: 21;
+        top: 66px;
+        left: 12px;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        min-height: 40px;
+        padding: 7px 11px;
+        color: #203229;
+        border: 1px solid rgba(255,255,255,.55);
+        border-radius: 10px;
+        background: rgba(255,253,249,.94);
+        box-shadow: 0 5px 16px rgba(0,0,0,.18);
+        font-size: 12px;
+        font-weight: 750;
+        cursor: pointer;
+      }
+      .point-filter-toggle span { color: #5f6f66; font-size: 11px; font-weight: 600; }
+      .point-filter {
+        top: 116px;
+        left: 8px;
+        width: min(240px, calc(100vw - 16px));
+        max-height: calc(100vh - 124px);
+        overflow-y: auto;
+        transform: translateX(calc(-100% - 16px));
+        transition: transform .2s ease;
+      }
+      .point-filter.open { transform: translateX(0); }
+      .point-filter strong { font-size: 13px; }
+      .point-filter-close { display: inline-flex; }
+      .scene-tools { right: 10px; bottom: 32px; }
+      body.detail-open .scene-tools { right: 10px; }
+      .viewer-status { left: 10px; bottom: 32px; max-width: calc(100vw - 74px); }
+    }
+  </style>
+  <style id="home-overlay-clearance">
+    .point-filter { top: 86px; }
+    @media (max-width: 680px) { .point-filter { top: 116px; } }
+    /* 正式平台由父页面提供唯一且持久的2D/3D共用筛选组件。 */
+    #pointFilterPanel, #pointFilterToggle { display: none !important; }
+  </style>
+</head>
+<body
+  data-viewer-engine="cesiumjs"
+  data-cesium-version="1.143"
+  data-ready-status-visibility="hidden"
+  data-terrain-mode="cesium-world-terrain"
+  data-resource-mode="cesium-ion"
+  data-ion-dependency="required"
+  data-cesium-ready="false"
+  data-model-ready="false"
+  data-terrain-ready="false"
+  data-local-imagery-ready="false"
+  data-world-imagery-ready="false"
+  data-terrain-context="cesium-world-terrain"
+  data-real-point-count="0"
+  data-spatial-vector-count="0"
+  data-water-zone-count="0"
+  data-water-line-count="0"
+  data-water-topic-mode="off"
+  data-visible-point-count="0"
+  data-point-initialization-count="0"
+  data-left-drag-action="horizontal-pan"
+  data-right-drag-action="orbit-screen-center-relative"
+  data-wheel-action="fixed-ratio-zoom"
+  data-middle-drag-action="disabled"
+  data-control-revision="world-space-v2"
+  data-last-wheel-orientation-delta="0"
+  data-right-press-jump="0"
+  data-right-release-jump="0"
+  data-last-pan-vertical-delta="0"
+  data-orbit-start-elevation="0"
+  data-orbit-current-elevation="0"
+  data-orbit-center-error="0"
+  data-last-orbit-yaw="0"
+  data-pin-renderer="html-svg"
+  data-poi-pin-visual-size="38x47"
+  data-poi-pin-hit-area="42x52"
+  data-research-point-renderer="circle"
+  data-research-point-count="0"
+  data-supporting-point-renderer="circle"
+  data-supporting-point-count="0"
+  data-sensitivity-range="0.3-2.0"
+  data-pan-sensitivity-default="1.0"
+  data-orbit-sensitivity-default="1.0"
+  data-zoom-sensitivity-default="1.0"
+  data-zoom-sensitivity-legacy-scale="1.5"
+  data-default-camera-target="hongtang-village"
+  data-startup-camera-animation="disabled"
+  data-point-load-camera-action="keep-village-view"
+  data-initial-view-applied="false"
+  data-default-view-range="1100"
+  data-last-camera-action="pending"
+  data-render-quality="balanced"
+>
+  <div id="cesiumContainer" aria-label="红塘村三维地形、实景模型和地点"></div>
+  <div class="point-overlay" id="pointOverlay" aria-label="三维场景高清地点图钉"></div>
+
+  <button class="point-filter-toggle" id="pointFilterToggle" type="button" aria-controls="pointFilterPanel" aria-expanded="false">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg>
+    筛选要素 <span id="pointFilterToggleCount">0 个</span>
+  </button>
+
+  <div class="point-filter" id="pointFilterPanel" aria-label="要素筛选">
+    <div class="point-filter-head">
+      <strong id="pointCount">正在准备地点</strong>
+      <span class="point-filter-actions">
+        <button id="selectAllPointTypes" type="button">全选</button>
+        <button id="clearPointTypes" type="button">清空</button>
+        <button class="point-filter-close" id="closePointFilter" type="button">完成</button>
+      </span>
+    </div>
+    <div class="point-filter-list" id="pointFilter" role="group" aria-label="选择要显示的地点类型"></div>
+  </div>
+
+  <div class="scene-tools" aria-label="三维场景工具">
+    <button class="scene-tool" id="showAllButton" type="button" data-tooltip="查看全部地点" aria-label="查看全部地点">
+      <svg viewBox="0 0 24 24"><path d="M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg>
+    </button>
+    <button class="scene-tool" id="centerButton" type="button" data-tooltip="回到中心" aria-label="回到中心">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="8"/></svg>
+    </button>
+    <button class="scene-tool" id="settingsButton" type="button" data-tooltip="操作设置" aria-label="操作设置" aria-expanded="false">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21h-4v-.08A1.7 1.7 0 0 0 9 19.37a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.63 15a1.7 1.7 0 0 0-1.55-1.03H3v-4h.08A1.7 1.7 0 0 0 4.63 9a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.63a1.7 1.7 0 0 0 1.03-1.55V3h4v.08A1.7 1.7 0 0 0 15 4.63a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.37 9a1.7 1.7 0 0 0 1.55 1.03H21v4h-.08A1.7 1.7 0 0 0 19.4 15Z"/></svg>
+    </button>
+    <button class="scene-tool" id="fullscreenButton" type="button" data-tooltip="全屏查看" aria-label="全屏查看">
+      <svg viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg>
+    </button>
+  </div>
+
+  <section class="settings-panel" id="settingsPanel" hidden aria-label="三维操作设置">
+    <h2>操作设置</h2>
+    <label class="setting-row"><span>左键平移灵敏度</span><output id="panValue">1.0</output><input id="panSensitivity" type="range" min="0.3" max="2.0" step="0.1" value="1.0" /></label>
+    <label class="setting-row"><span>右键旋转灵敏度</span><output id="orbitValue">1.0</output><input id="orbitSensitivity" type="range" min="0.3" max="2.0" step="0.1" value="1.0" /></label>
+    <label class="setting-row"><span>滚轮缩放灵敏度</span><output id="zoomValue">1.0</output><input id="zoomSensitivity" type="range" min="0.3" max="2.0" step="0.1" value="1.0" /></label>
+    <label class="setting-row"><span>画面质量</span><select id="qualitySelect"><option value="saving">省电</option><option value="balanced" selected>均衡</option><option value="clear">清晰</option></select></label>
+    <p class="control-hint">左键拖动：水平平移<br />右键拖动：围绕画面中心旋转<br />滚轮：按固定比例放大或缩小</p>
+  </section>
+
+  <div class="viewer-status" id="viewerStatus">正在连接红塘村地形和实景模型…</div>
+
+  <script>window.CESIUM_BASE_URL = "/vendor/cesium/";</script>
+  <script src="/vendor/cesium/Cesium.js"></script>
+  <script>
+    (() => {
+      "use strict";
+
+      const parentOrigin = window.location.origin;
+      const cesiumEndpointUrl = "/api/cesium-ion/asset";
+      const imageryMetadataUrl = "/data/hongtang-orthophoto.json";
+      const terrainMetadataUrl = "/data/hongtang-terrain.json";
+      const localModelUrl = "/api/local-cesium-model/tileset.json";
+      const ZOOM_SENSITIVITY_LEGACY_SCALE = 1.5;
+      const modelCenter = { longitude: 99.908740607, latitude: 24.636255278, height: 1764 };
+      const villageView = { heading: 0, pitch: -48, range: 1100 };
+      const body = document.body;
+      const statusElement = document.getElementById("viewerStatus");
+      const countElement = document.getElementById("pointCount");
+      const filterElement = document.getElementById("pointFilter");
+      const pointFilterPanel = document.getElementById("pointFilterPanel");
+      const pointFilterToggle = document.getElementById("pointFilterToggle");
+      const pointFilterToggleCount = document.getElementById("pointFilterToggleCount");
+      const closePointFilterButton = document.getElementById("closePointFilter");
+      const selectAllPointTypesButton = document.getElementById("selectAllPointTypes");
+      const clearPointTypesButton = document.getElementById("clearPointTypes");
+      const settingsPanel = document.getElementById("settingsPanel");
+      const settingsButton = document.getElementById("settingsButton");
+      const panInput = document.getElementById("panSensitivity");
+      const orbitInput = document.getElementById("orbitSensitivity");
+      const zoomInput = document.getElementById("zoomSensitivity");
+      const qualitySelect = document.getElementById("qualitySelect");
+      const pointOverlay = document.getElementById("pointOverlay");
+      const pointEntities = new Map();
+      const pointsById = new Map();
+      const spatialEntities = new Map();
+      const spatialZoneColor = "#0b6f87";
+      const spatialZoneBorderColor = "#075b72";
+      const spatialZoneBaseAlpha = .36;
+      const spatialLineBaseAlpha = .98;
+      let viewer;
+      let tileset;
+      let terrainProvider;
+      let terrainSampler;
+      let terrainFallbackHeight = 1570;
+      let selectedPointId;
+      let selectedSpatialId;
+      let hoveredPointId;
+      let pointPayload = [];
+      let pointPayloadSignature = "";
+      let waterSystemPayload;
+      let waterTopicMode = "off";
+      let relatedWaterIds = new Set();
+      let lastSelectedSpatialScreenSignature = "";
+      let activePointGroups = new Set();
+      let externalPointGroups = null;
+      let viewerReady = false;
+      let viewerFailureMessage = "";
+      let terrainReady = false;
+      let modelReady = false;
+      let wheelLocked = false;
+
+      const setPointFilterOpen = (open) => {
+        pointFilterPanel.classList.toggle("open", open);
+        pointFilterToggle.setAttribute("aria-expanded", String(open));
+      };
+      let lastSelectedScreenSignature = "";
+
+      const postToParent = (payload) => {
+        window.parent.postMessage(payload, parentOrigin);
+      };
+
+      const setStatus = (message, state = "") => {
+        statusElement.textContent = message;
+        statusElement.className = `viewer-status ${state}`.trim();
+      };
+
+      const validPoint = (point) => (
+        point &&
+        typeof point.id === "string" &&
+        Number.isFinite(Number(point.longitude)) &&
+        Number.isFinite(Number(point.latitude)) &&
+        Number(point.longitude) >= -180 &&
+        Number(point.longitude) <= 180 &&
+        Number(point.latitude) >= -90 &&
+        Number(point.latitude) <= 90 &&
+        !(Number(point.longitude) === 0 && Number(point.latitude) === 0)
+      );
+
+      const categoryGroup = (featureType) => {
+        if (featureType === "garden") return "garden";
+        if (featureType === "tea-garden" || featureType === "tea-factory") return "tea";
+        if (featureType === "water-facility" || featureType === "water") return "water";
+        if (featureType === "safety-risk") return "safety";
+        if (featureType === "village-memory" || featureType === "culture") return "history";
+        if (featureType === "public-service") return "public";
+        if (featureType === "research-photo") return "research";
+        return "ecology";
+      };
+
+      const pointCategoryLabels = {
+        garden: "小花园",
+        tea: "茶产业",
+        water: "村里用水",
+        safety: "塌方与安全",
+        history: "历史与文化",
+        public: "公共服务设施",
+        ecology: "生态资源",
+        research: "村景记录",
+      };
+
+      const pinSymbols = {
+        flower: '<path d="M12 5a3 3 0 1 1 3 3m-3-3a3 3 0 1 0-3 3m3-3v1M9 8a3 3 0 1 0 3 3M9 8h1m5 0a3 3 0 1 1-3 3m3-3h-1m-2 3v-1"/><circle cx="12" cy="8" r="2"/><path d="M12 10v12M12 22c4.2 0 7-1.667 7-5-4.2 0-7 1.667-7 5ZM12 22c-4.2 0-7-1.667-7-5 4.2 0 7 1.667 7 5Z"/>',
+        factory: '<path d="M2 20a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8l-7 5V8l-7 5V4a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M17 18h1M12 18h1M7 18h1"/>',
+        droplets: '<path d="M7 16.3c2.2 0 4-1.83 4-4.05 0-1.16-.57-2.26-1.71-3.19S7.29 6.75 7 5.3c-.29 1.45-1.14 2.84-2.29 3.76S3 11.1 3 12.25c0 2.22 1.8 4.05 4 4.05Z"/><path d="M12.56 6.6A10.97 10.97 0 0 0 14 3.02c.5 2.5 2 4.9 4 6.5s3 3.5 3 5.5a6.98 6.98 0 0 1-11.91 4.97"/>',
+        toilet: '<path d="M7 12h13a1 1 0 0 1 1 1 5 5 0 0 1-5 5h-.598a.5.5 0 0 0-.424.765l1.544 2.47a.5.5 0 0 1-.424.765H5.402a.5.5 0 0 1-.424-.765L7 18"/><path d="M8 18a5 5 0 0 1-5-5V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8"/>',
+        parking: '<circle cx="12" cy="12" r="10"/><path d="M9 17V7h4a3 3 0 0 1 0 6H9"/>',
+        school: '<path d="M14 22v-4a2 2 0 1 0-4 0v4M18 10l3.447 1.724a1 1 0 0 1 .553.894V20a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-7.382a1 1 0 0 1 .553-.894L6 10M18 5v17M4 6l7.106-3.553a2 2 0 0 1 1.788 0L20 6M6 5v17"/><circle cx="12" cy="9" r="2"/>',
+        trash: '<path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6"/>',
+        users: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/>',
+        landmark: '<path d="M3 22h18M6 18v-7M10 18v-7M14 18v-7M18 18v-7"/><path d="m12 2 8 5H4Z"/>',
+        house: '<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-5.999a2 2 0 0 1 2.582 0l7 5.999A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/>',
+        building: '<path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18ZM6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2M10 6h4M10 10h4M10 14h4M10 18h4"/>',
+        leaf: '<path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>',
+        alert: '<path d="m21.73 18-8-14a2 2 0 0 0-3.46 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4M12 17h.01"/>',
+        history: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5M12 7v5l4 2"/>',
+      };
+
+      const pinSymbolName = (point) => {
+        if (point.featureType === "garden") return "flower";
+        if (point.featureType === "tea-garden" || point.featureType === "tea-factory") return "factory";
+        if (point.featureType === "water-facility" || point.featureType === "water") return "droplets";
+        if (point.featureType === "safety-risk") return "alert";
+        if (point.featureType === "village-memory" || point.featureType === "culture") return "history";
+        if (point.featureType === "ecology") return "leaf";
+        const title = point.title || "";
+        if (/厕所|公厕|卫生间/.test(title)) return "toilet";
+        if (/停车/.test(title)) return "parking";
+        if (/小学|学校/.test(title)) return "school";
+        if (/垃圾/.test(title)) return "trash";
+        if (/活动中心|老年/.test(title)) return "users";
+        if (/加工厂|厂/.test(title)) return "factory";
+        if (/村委/.test(title)) return "landmark";
+        if (/居|住宅|民宿/.test(title)) return "house";
+        return "building";
+      };
+
+      const pinColor = (group, fallback) => fallback || ({
+        garden: "#4f8d55",
+        tea: "#9a7138",
+        water: "#39758a",
+        safety: "#b65a43",
+        history: "#7b5c8e",
+        public: "#4e80a0",
+        ecology: "#2f6b4f",
+        research: "#a26789",
+      })[group] || "#b45739";
+
+      const setHoveredPoint = (id) => {
+        if (id === hoveredPointId) return;
+        const previous = hoveredPointId;
+        hoveredPointId = id;
+        if (previous) setEntityAppearance(previous);
+        if (hoveredPointId) setEntityAppearance(hoveredPointId);
+        viewer?.scene.requestRender();
+      };
+
+      const createPinMarker = (point, group, color) => {
+        const marker = document.createElement("button");
+        const isSupportingPoint = group === "public" || group === "ecology" || group === "research";
+        marker.type = "button";
+        marker.className = isSupportingPoint ? "map-pin map-dot" : "map-pin";
+        marker.dataset.pointId = point.id;
+        marker.dataset.pointGroup = group;
+        marker.dataset.markerShape = isSupportingPoint ? "dot" : "pin";
+        const symbolName = isSupportingPoint ? "" : pinSymbolName(point);
+        if (symbolName) marker.dataset.pinSymbol = symbolName;
+        const markerLabel = group === "research" ? "村景记录" : point.title || "地点";
+        marker.setAttribute("aria-label", `查看${markerLabel}`);
+        marker.style.setProperty("--pin-color", color);
+        const visual = isSupportingPoint
+          ? '<span class="map-dot-core" aria-hidden="true"></span>'
+          : `<svg viewBox="0 0 84 104" role="img" aria-hidden="true" focusable="false">
+              <path class="map-pin-shape" d="M42 101C35 88 7 65 7 42A35 35 0 1 1 77 42C77 65 49 88 42 101Z"></path>
+              <circle class="map-pin-core" cx="42" cy="42" r="24"></circle>
+              <g class="map-pin-symbol" transform="translate(22 22) scale(1.6667)">${pinSymbols[symbolName]}</g>
+            </svg>`;
+        marker.innerHTML = `${visual}<span class="map-pin-label"></span>`;
+
+        marker.querySelector(".map-pin-label").textContent = markerLabel;
+        marker.addEventListener("mouseenter", () => setHoveredPoint(point.id));
+        marker.addEventListener("mouseleave", () => setHoveredPoint(undefined));
+        marker.addEventListener("focus", () => setHoveredPoint(point.id));
+        marker.addEventListener("blur", () => setHoveredPoint(undefined));
+        marker.addEventListener("click", () => selectPoint(point.id));
+        marker.addEventListener("contextmenu", (event) => event.preventDefault());
+        pointOverlay.appendChild(marker);
+        return marker;
+      };
+      const fetchJson = async (url) => {
+        const response = await fetch(url, { cache: "no-store" });
+        if (!response.ok) throw new Error(`本地资源不可用：${url}`);
+        return response.json();
+      };
+
+      const loadLocalTerrainSampler = async () => {
+        const metadata = await fetchJson(terrainMetadataUrl);
+        const loadGrid = async (asset, widthValue, heightValue, bounds) => {
+          const width = Number(widthValue);
+          const height = Number(heightValue);
+          if (!asset || !bounds || !Number.isInteger(width) || !Number.isInteger(height)) {
+            return undefined;
+          }
+          const response = await fetch(asset, { cache: "force-cache" });
+          if (!response.ok) throw new Error(`本地高程资源不可用：${asset}`);
+          const buffer = await response.arrayBuffer();
+          if (buffer.byteLength !== width * height * 4) {
+            throw new Error(`本地高程资源尺寸不正确：${asset}`);
+          }
+          const view = new DataView(buffer);
+          const values = new Float32Array(width * height);
+          for (let index = 0; index < values.length; index += 1) {
+            values[index] = view.getFloat32(index * 4, true);
+          }
+          const west = Number(bounds.west);
+          const south = Number(bounds.south);
+          const east = Number(bounds.east);
+          const north = Number(bounds.north);
+          return (longitude, latitude) => {
+            if (
+              longitude < west || longitude > east
+              || latitude < south || latitude > north
+            ) return undefined;
+            const x = Cesium.Math.clamp(
+              ((longitude - west) / (east - west)) * (width - 1),
+              0,
+              width - 1,
+            );
+            const y = Cesium.Math.clamp(
+              ((north - latitude) / (north - south)) * (height - 1),
+              0,
+              height - 1,
+            );
+            const x0 = Math.floor(x);
+            const y0 = Math.floor(y);
+            const x1 = Math.min(width - 1, x0 + 1);
+            const y1 = Math.min(height - 1, y0 + 1);
+            const tx = x - x0;
+            const ty = y - y0;
+            const value = Cesium.Math.lerp(
+              Cesium.Math.lerp(values[y0 * width + x0], values[y0 * width + x1], tx),
+              Cesium.Math.lerp(values[y1 * width + x0], values[y1 * width + x1], tx),
+              ty,
+            );
+            return Number.isFinite(value) && value > -9000 ? value : undefined;
+          };
+        };
+        const localSample = await loadGrid(
+          metadata.heightAsset,
+          metadata.gridWidth,
+          metadata.gridHeight,
+          metadata.wgs84Bounds,
+        );
+        const context = metadata.regionalContext || {};
+        const contextSample = await loadGrid(
+          context.heightAsset,
+          context.gridWidth,
+          context.gridHeight,
+          context.wgs84Bounds,
+        );
+        terrainFallbackHeight = Number(metadata.statistics?.mean) || 1605;
+        terrainSampler = (longitude, latitude) => (
+          localSample?.(longitude, latitude)
+          ?? contextSample?.(longitude, latitude)
+          ?? terrainFallbackHeight
+        );
+        body.dataset.localHeightSamplerReady = "true";
+      };
+
+      const withTimeout = (promise, timeoutMs, message) => Promise.race([
+        promise,
+        new Promise((_, reject) => {
+          window.setTimeout(() => reject(new Error(message)), timeoutMs);
+        }),
+      ]);
+
+      const endpointResource = (endpoint) => new Cesium.Resource({
+        url: endpoint.url,
+        queryParameters: endpoint.accessToken
+          ? { access_token: endpoint.accessToken }
+          : undefined,
+      });
+
+      const fetchCesiumEndpoint = async () => {
+        const response = await fetch(cesiumEndpointUrl, { cache: "no-store" });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload.error || "Cesium ion 模型访问配置不可用");
+        }
+        if (
+          payload.mode === "client-ion"
+          && payload.accessToken
+          && Number.isFinite(Number(payload.assetId))
+        ) {
+          return payload;
+        }
+        if (!payload.url || !payload.environment?.terrain?.url) {
+          throw new Error("Cesium ion 返回的模型或世界地形配置不完整");
+        }
+        return payload;
+      };
+
+      const createIonTerrain = async (endpoint) => {
+        const options = {
+          requestVertexNormals: true,
+          requestWaterMask: true,
+        };
+        const provider = endpoint.mode === "client-ion"
+          ? await Cesium.CesiumTerrainProvider.fromIonAssetId(
+            Number(endpoint.environment?.terrainAssetId || 1),
+            options,
+          )
+          : await Cesium.CesiumTerrainProvider.fromUrl(
+            endpointResource(endpoint.environment?.terrain),
+            options,
+          );
+        body.dataset.terrainMode = "cesium-world-terrain";
+        body.dataset.terrainContext = "cesium-world-terrain";
+        return provider;
+      };
+
+      const addEnvironmentImagery = async (endpoint) => {
+        viewer.imageryLayers.removeAll();
+        if (!terrainReady) {
+          body.dataset.localImageryReady = "false";
+          return;
+        }
+        const imagery = endpoint.environment?.imagery;
+        if (endpoint.mode === "client-ion") {
+          try {
+            const worldProvider = await withTimeout(
+              Cesium.IonImageryProvider.fromAssetId(
+                Number(endpoint.environment?.imageryAssetId || 2),
+              ),
+              8000,
+              "Cesium航空影像连接超时",
+            );
+            viewer.imageryLayers.addImageryProvider(worldProvider);
+            body.dataset.worldImageryReady = "true";
+          } catch (error) {
+            console.warn("Cesium航空影像加载失败，继续使用红塘无人机影像。", error);
+            body.dataset.worldImageryReady = "false";
+          }
+        } else if (
+          imagery?.externalType === "BING"
+          && imagery.options?.url
+          && imagery.options?.key
+        ) {
+          try {
+            const worldProvider = await Cesium.BingMapsImageryProvider.fromUrl(
+              imagery.options.url,
+              {
+                key: imagery.options.key,
+                mapStyle: Cesium.BingMapsStyle.AERIAL,
+              },
+            );
+            viewer.imageryLayers.addImageryProvider(worldProvider);
+            body.dataset.worldImageryReady = "true";
+          } catch (error) {
+            console.warn("Cesium Bing 航空影像加载失败，继续使用红塘无人机影像。", error);
+            body.dataset.worldImageryReady = "false";
+          }
+        }
+
+        const metadata = await fetchJson(imageryMetadataUrl);
+        const bounds = metadata.approximateWgs84Bounds;
+        if (!bounds || !metadata.displayAsset) {
+          throw new Error("红塘村无人机影像配置不完整");
+        }
+        const localProvider = await Cesium.SingleTileImageryProvider.fromUrl(
+          metadata.displayAsset,
+          {
+            rectangle: Cesium.Rectangle.fromDegrees(
+              Number(bounds.west),
+              Number(bounds.south),
+              Number(bounds.east),
+              Number(bounds.north),
+            ),
+            credit: "红塘村无人机正射影像",
+          },
+        );
+        const localLayer = viewer.imageryLayers.addImageryProvider(localProvider);
+        localLayer.alpha = 1;
+        localLayer.brightness = 1;
+        localLayer.contrast = 1.02;
+        viewer.imageryLayers.raiseToTop(localLayer);
+        body.dataset.localImageryReady = "true";
+        viewer.scene.requestRender();
+      };
+
+      const registerEndpointAttributions = (endpoint) => {
+        const groups = [
+          endpoint.attributions,
+          endpoint.environment?.terrain?.attributions,
+          endpoint.environment?.imagery?.attributions,
+        ];
+        const seen = new Set();
+        for (const attribution of groups.flatMap((group) => group || [])) {
+          const key = `${attribution.html}|${attribution.collapsible}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          viewer.cesiumWidget.creditDisplay.addStaticCredit(
+            new Cesium.Credit(attribution.html, attribution.collapsible),
+          );
+        }
+      };
+
+      const applyQuality = (quality) => {
+        if (!viewer) return;
+        const profile = {
+          saving: { scale: .58, error: 30, globeError: 12, fps: 30, fog: true },
+          balanced: { scale: .78, error: 20, globeError: 8, fps: 45, fog: true },
+          clear: { scale: Math.min(1, window.devicePixelRatio > 1.5 ? .9 : 1), error: 12, globeError: 5, fps: 60, fog: false },
+        }[quality] || { scale: .78, error: 20, globeError: 8, fps: 45, fog: true };
+        viewer.resolutionScale = profile.scale;
+        viewer.targetFrameRate = profile.fps;
+        viewer.scene.fog.enabled = profile.fog;
+        viewer.scene.globe.maximumScreenSpaceError = profile.globeError;
+        if (tileset) tileset.maximumScreenSpaceError = profile.error;
+        body.dataset.renderQuality = quality;
+        viewer.scene.requestRender();
+      };
+
+      const setEntityAppearance = (id) => {
+        const entry = pointEntities.get(id);
+        if (!entry) return;
+        const active = selectedPointId === id;
+        const hovered = hoveredPointId === id;
+        const related = relatedWaterIds.has(id);
+        const relationMuted = relatedWaterIds.size > 0 && entry.group === "water" && !related;
+        entry.emphasisScale = entry.group === "research"
+          ? active ? 2 : hovered ? 1.45 : 1
+          : active ? 1.35 : hovered ? 1.18 : related ? 1.16 : 1;
+        entry.marker.classList.toggle("is-active", active);
+        entry.marker.classList.toggle("is-hovered", hovered);
+        entry.marker.classList.toggle("is-related", related);
+        entry.marker.classList.toggle("relation-muted", relationMuted);
+        updatePointOverlay();
+      };
+
+      const selectPoint = (id, notify = true) => {
+        if (!pointsById.has(id)) return;
+        if (window.matchMedia("(max-width: 680px)").matches) setPointFilterOpen(false);
+        clearSpatial(false);
+        const previous = selectedPointId;
+        selectedPointId = id;
+        if (previous) setEntityAppearance(previous);
+        setEntityAppearance(id);
+        viewer.scene.requestRender();
+        if (notify) {
+          body.dataset.lastPointAutoFocus = id;
+          const entry = pointEntities.get(id);
+          postToParent({
+            type: "hongtang-gaussian-point-selected",
+            id,
+            screen: entry?.screenPosition ? {
+              x: entry.screenPosition.x,
+              y: entry.screenPosition.y,
+              width: viewer.scene.canvas.clientWidth,
+              height: viewer.scene.canvas.clientHeight,
+              visible: !entry.marker.hidden,
+            } : { visible: false },
+          });
+          void focusPoint(id, false);
+        }
+      };
+
+      const clearPoint = (notify = true) => {
+        const previous = selectedPointId;
+        selectedPointId = undefined;
+        lastSelectedScreenSignature = "";
+        if (previous) {
+          setEntityAppearance(previous);
+          if (notify) postToParent({ type: "hongtang-gaussian-point-screen", id: previous, visible: false });
+        }
+        viewer?.scene.requestRender();
+      };
+
+      const terrainHeightAt = async (longitude, latitude) => {
+        if (terrainSampler) return terrainSampler(longitude, latitude);
+        if (!terrainProvider || !terrainReady) return modelCenter.height;
+        try {
+          const samples = await Cesium.sampleTerrainMostDetailed(
+            terrainProvider,
+            [Cesium.Cartographic.fromDegrees(longitude, latitude)],
+          );
+          return Number.isFinite(samples[0]?.height) ? samples[0].height : modelCenter.height;
+        } catch {
+          return modelCenter.height;
+        }
+      };
+
+      const spatialCenter = (coordinates) => {
+        if (!Array.isArray(coordinates) || !coordinates.length) return [modelCenter.longitude, modelCenter.latitude];
+        const total = coordinates.reduce((sum, coordinate) => [sum[0] + Number(coordinate[0]), sum[1] + Number(coordinate[1])], [0, 0]);
+        return [total[0] / coordinates.length, total[1] / coordinates.length];
+      };
+
+      const spatialAtScreenPosition = (position) => {
+        if (!viewer || !position) return undefined;
+        const picked = viewer.scene.pick(position);
+        return picked?.id?.hongtangSpatialId;
+      };
+
+      const spatialLineMaterial = (color, alpha, outlineAlpha = .88) => (
+        new Cesium.PolylineOutlineMaterialProperty({
+          color: Cesium.Color.fromCssColorString(color).withAlpha(alpha),
+          outlineColor: Cesium.Color.WHITE.withAlpha(outlineAlpha),
+          outlineWidth: 1.35,
+        })
+      );
+
+      const setSpatialAppearance = (id) => {
+        const entry = spatialEntities.get(id);
+        if (!entry) return;
+        const active = selectedSpatialId === id;
+        const related = relatedWaterIds.has(id);
+        const muted = relatedWaterIds.size > 0 && !related;
+        if (entry.type === "zone") {
+          const fillAlpha = active ? .62 : related ? .5 : muted ? .08 : spatialZoneBaseAlpha;
+          const borderAlpha = active ? 1 : related ? .98 : muted ? .2 : .96;
+          entry.entity.polygon.material = Cesium.Color.fromCssColorString(spatialZoneColor).withAlpha(fillAlpha);
+          entry.borderEntity.polyline.width = active ? 6.4 : related ? 5.2 : 4.2;
+          entry.borderEntity.polyline.material = spatialLineMaterial(spatialZoneBorderColor, borderAlpha, muted ? .16 : .95);
+          entry.borderEntity.polyline.depthFailMaterial = spatialLineMaterial(spatialZoneBorderColor, borderAlpha, muted ? .16 : .98);
+        } else {
+          const alpha = active ? 1 : related ? 1 : muted ? .2 : spatialLineBaseAlpha;
+          const outlineAlpha = muted ? .2 : active ? 1 : .9;
+          entry.entity.polyline.width = active ? entry.baseWidth + 2.8 : related ? entry.baseWidth + 1.5 : entry.baseWidth;
+          entry.entity.polyline.material = spatialLineMaterial(entry.color, alpha, outlineAlpha);
+          entry.entity.polyline.depthFailMaterial = spatialLineMaterial(entry.color, alpha, outlineAlpha);
+        }
+      };
+
+      const postSelectedSpatialScreen = () => {
+        if (!selectedSpatialId || !viewer) return;
+        const entry = spatialEntities.get(selectedSpatialId);
+        const canvas = viewer.scene.canvas;
+        let screen;
+        let visible = false;
+        if (entry?.visible && entry.anchorWorldPosition) {
+          const toAnchor = Cesium.Cartesian3.subtract(entry.anchorWorldPosition, viewer.camera.positionWC, new Cesium.Cartesian3());
+          const inFront = Cesium.Cartesian3.dot(viewer.camera.directionWC, toAnchor) > 0;
+          screen = inFront ? Cesium.SceneTransforms.worldToWindowCoordinates(viewer.scene, entry.anchorWorldPosition, new Cesium.Cartesian2()) : undefined;
+          visible = Boolean(screen && Number.isFinite(screen.x) && Number.isFinite(screen.y)
+            && screen.x >= 0 && screen.x <= canvas.clientWidth
+            && screen.y >= 0 && screen.y <= canvas.clientHeight);
+        }
+        const payload = {
+          type: "hongtang-gaussian-spatial-screen",
+          id: selectedSpatialId,
+          visible,
+          x: visible ? screen.x : undefined,
+          y: visible ? screen.y : undefined,
+          width: canvas.clientWidth,
+          height: canvas.clientHeight,
+        };
+        const signature = `${payload.id}:${visible}:${Math.round((payload.x || 0) * 2)}:${Math.round((payload.y || 0) * 2)}:${payload.width}:${payload.height}`;
+        if (signature === lastSelectedSpatialScreenSignature) return;
+        lastSelectedSpatialScreenSignature = signature;
+        postToParent(payload);
+      };
+
+      const clearSpatial = (notify = true) => {
+        const previous = selectedSpatialId;
+        selectedSpatialId = undefined;
+        lastSelectedSpatialScreenSignature = "";
+        if (previous) {
+          setSpatialAppearance(previous);
+          if (notify) postToParent({ type: "hongtang-gaussian-spatial-screen", id: previous, visible: false });
+        }
+        viewer?.scene.requestRender();
+      };
+
+      const focusSpatial = async (id) => {
+        const entry = spatialEntities.get(id);
+        if (!entry || !viewer) return;
+        const [longitude, latitude] = entry.anchorDegrees;
+        const groundHeight = await terrainHeightAt(longitude, latitude);
+        const target = Cesium.Cartesian3.fromDegrees(longitude, latitude, groundHeight + 3);
+        body.dataset.lastCameraAction = "spatial-focus-animation";
+        viewer.camera.flyToBoundingSphere(
+          new Cesium.BoundingSphere(target, 1),
+          {
+            offset: new Cesium.HeadingPitchRange(
+              0,
+              Cesium.Math.toRadians(-58),
+              entry.type === "zone" ? 680 : 520,
+            ),
+            duration: .9,
+          },
+        );
+      };
+
+      const selectSpatial = (id, clickPosition) => {
+        const entry = spatialEntities.get(id);
+        if (!entry) return;
+        if (window.matchMedia("(max-width: 680px)").matches) setPointFilterOpen(false);
+        clearPoint(false);
+        const previous = selectedSpatialId;
+        selectedSpatialId = id;
+        if (previous) setSpatialAppearance(previous);
+        setSpatialAppearance(id);
+        const canvas = viewer.scene.canvas;
+        const projected = entry.anchorWorldPosition
+          ? Cesium.SceneTransforms.worldToWindowCoordinates(viewer.scene, entry.anchorWorldPosition, new Cesium.Cartesian2())
+          : undefined;
+        const screen = projected || clickPosition;
+        postToParent({
+          type: "hongtang-gaussian-spatial-selected",
+          id,
+          screen: screen ? {
+            x: screen.x,
+            y: screen.y,
+            width: canvas.clientWidth,
+            height: canvas.clientHeight,
+            visible: true,
+          } : { visible: false },
+        });
+        viewer.scene.requestRender();
+        void focusSpatial(id);
+      };
+
+      const setSpatialLayers = (data) => {
+        waterSystemPayload = data;
+        if (!viewer || !data) return;
+        spatialEntities.forEach((entry) => {
+          viewer.entities.remove(entry.entity);
+          (entry.auxiliaryEntities || []).forEach((entity) => viewer.entities.remove(entity));
+        });
+        spatialEntities.clear();
+        selectedSpatialId = undefined;
+        const register = (id, entry) => {
+          [entry.entity, ...(entry.auxiliaryEntities || [])].forEach((entity) => {
+            entity.hongtangSpatialId = id;
+          });
+          entry.visible = true;
+          spatialEntities.set(id, entry);
+          const [longitude, latitude] = entry.anchorDegrees;
+          entry.anchorWorldPosition = Cesium.Cartesian3.fromDegrees(longitude, latitude, modelCenter.height + 3);
+          void terrainHeightAt(longitude, latitude).then((height) => {
+            const current = spatialEntities.get(id);
+            if (!current) return;
+            current.anchorWorldPosition = Cesium.Cartesian3.fromDegrees(longitude, latitude, height + 3);
+            viewer.scene.requestRender();
+          });
+        };
+        const spatialPositions = (coordinates, lift = 3) => {
+          const flat = coordinates.flatMap((coordinate) => [
+            Number(coordinate[0]),
+            Number(coordinate[1]),
+          ]);
+          if (terrainReady) return Cesium.Cartesian3.fromDegreesArray(flat);
+          return Cesium.Cartesian3.fromDegreesArrayHeights(
+            coordinates.flatMap((coordinate) => {
+              const longitude = Number(coordinate[0]);
+              const latitude = Number(coordinate[1]);
+              const height = terrainSampler
+                ? terrainSampler(longitude, latitude)
+                : terrainFallbackHeight;
+              return [longitude, latitude, height + lift];
+            }),
+          );
+        };
+        (Array.isArray(data.zones) ? data.zones : []).forEach((zone) => {
+          const borderPath = zone.polygon.length
+            ? [...zone.polygon, zone.polygon[0]]
+            : [];
+          const polygon = terrainReady
+            ? {
+                hierarchy: spatialPositions(zone.polygon),
+                material: Cesium.Color.fromCssColorString(spatialZoneColor).withAlpha(spatialZoneBaseAlpha),
+                classificationType: Cesium.ClassificationType.BOTH,
+                zIndex: 1,
+              }
+            : {
+                hierarchy: spatialPositions(zone.polygon, 2),
+                material: Cesium.Color.fromCssColorString(spatialZoneColor).withAlpha(spatialZoneBaseAlpha),
+                perPositionHeight: true,
+              };
+          const entity = viewer.entities.add({
+            id: `hongtang-spatial-${zone.id}`,
+            polygon,
+          });
+          const borderEntity = viewer.entities.add({
+            id: `hongtang-spatial-${zone.id}-border`,
+            polyline: {
+              positions: spatialPositions(borderPath, 5),
+              width: 4.2,
+              material: spatialLineMaterial(spatialZoneBorderColor, .96, .95),
+              depthFailMaterial: spatialLineMaterial(spatialZoneBorderColor, .98, .98),
+              clampToGround: terrainReady,
+              classificationType: terrainReady
+                ? Cesium.ClassificationType.BOTH
+                : undefined,
+              zIndex: 3,
+            },
+          });
+          register(zone.id, {
+            entity,
+            borderEntity,
+            auxiliaryEntities: [borderEntity],
+            type: "zone",
+            item: zone,
+            anchorDegrees: spatialCenter(zone.polygon),
+          });
+        });
+        const lineStyle = {
+          "supply-main": { color: "#00658a", width: 6.5 },
+          "supply-branch": { color: "#0586a8", width: 5 },
+          "main-drain": { color: "#0a6d9c", width: 5.8 },
+          outlet: { color: "#164a84", width: 6.3 },
+          "branch-drain": { color: "#3b86ad", width: 4.6 },
+        };
+        (Array.isArray(data.lines) ? data.lines : []).forEach((line) => {
+          const style = lineStyle[line.kind] || lineStyle["branch-drain"];
+          const entity = viewer.entities.add({
+            id: `hongtang-spatial-${line.id}`,
+            polyline: {
+              positions: spatialPositions(line.path, 4),
+              width: style.width,
+              material: spatialLineMaterial(style.color, spatialLineBaseAlpha),
+              depthFailMaterial: spatialLineMaterial(style.color, 1, .96),
+              clampToGround: terrainReady,
+              classificationType: terrainReady
+                ? Cesium.ClassificationType.BOTH
+                : undefined,
+              zIndex: 2,
+            },
+          });
+          register(line.id, {
+            entity,
+            type: "line",
+            item: line,
+            color: style.color,
+            baseWidth: style.width,
+            anchorDegrees: line.path[Math.floor(line.path.length / 2)] || spatialCenter(line.path),
+          });
+        });
+        body.dataset.spatialVectorCount = String(spatialEntities.size);
+        body.dataset.waterZoneCount = String(Array.isArray(data.zones) ? data.zones.length : 0);
+        body.dataset.waterLineCount = String(Array.isArray(data.lines) ? data.lines.length : 0);
+        body.dataset.spatialDepthMode = "terrain-and-3d-tiles";
+        body.dataset.spatialZoneAlpha = String(spatialZoneBaseAlpha);
+        body.dataset.spatialLineAlpha = String(spatialLineBaseAlpha);
+        body.dataset.spatialOcclusionCompensation = "depth-fail-outline";
+        renderPointFilters();
+        applyPointFilter();
+        viewer.scene.requestRender();
+      };
+
+      const pointScaleAtDistance = (distance) => {
+        const amount = Cesium.Math.clamp((distance - 250) / (30000 - 250), 0, 1);
+        return Cesium.Math.lerp(1.25, .38, amount);
+      };
+
+      const postSelectedPointScreen = () => {
+        if (!selectedPointId || !viewer) return;
+        const entry = pointEntities.get(selectedPointId);
+        const visible = Boolean(entry?.visible && entry?.screenPosition && !entry?.marker.hidden);
+        const payload = {
+          type: "hongtang-gaussian-point-screen",
+          id: selectedPointId,
+          visible,
+          x: visible ? entry.screenPosition.x : undefined,
+          y: visible ? entry.screenPosition.y : undefined,
+          width: viewer.scene.canvas.clientWidth,
+          height: viewer.scene.canvas.clientHeight,
+        };
+        const signature = `${payload.id}:${visible}:${Math.round((payload.x || 0) * 2)}:${Math.round((payload.y || 0) * 2)}:${payload.width}:${payload.height}`;
+        if (signature === lastSelectedScreenSignature) return;
+        lastSelectedScreenSignature = signature;
+        postToParent(payload);
+      };
+
+      const updatePointOverlay = () => {
+        if (!viewer) return;
+        const cameraPosition = viewer.camera.positionWC;
+        const cameraDirection = viewer.camera.directionWC;
+        const canvas = viewer.scene.canvas;
+        pointEntities.forEach((entry) => {
+          const marker = entry.marker;
+          if (!entry.visible || !entry.worldPosition) {
+            marker.hidden = true;
+            entry.screenPosition = undefined;
+            return;
+          }
+          const toPoint = Cesium.Cartesian3.subtract(
+            entry.worldPosition,
+            cameraPosition,
+            new Cesium.Cartesian3(),
+          );
+          const distance = Cesium.Cartesian3.magnitude(toPoint);
+          const inFront = Cesium.Cartesian3.dot(cameraDirection, toPoint) > 0;
+          const screen = inFront && distance <= 30000
+            ? Cesium.SceneTransforms.worldToWindowCoordinates(
+              viewer.scene,
+              entry.worldPosition,
+              new Cesium.Cartesian2(),
+            )
+            : undefined;
+          const onScreen = screen
+            && Number.isFinite(screen.x)
+            && Number.isFinite(screen.y)
+            && screen.x > -80
+            && screen.x < canvas.clientWidth + 80
+            && screen.y > -100
+            && screen.y < canvas.clientHeight + 80;
+          marker.hidden = !onScreen;
+          if (!onScreen) {
+            entry.screenPosition = undefined;
+            return;
+          }
+          const distanceScale = pointScaleAtDistance(distance);
+          const screenScale = (entry.group === "research" ? Math.max(.78, distanceScale) : distanceScale)
+            * (entry.emphasisScale || 1);
+          entry.screenPosition = Cesium.Cartesian2.clone(screen);
+          entry.screenScale = screenScale;
+          marker.style.left = `${screen.x}px`;
+          marker.style.top = `${screen.y}px`;
+          marker.style.zIndex = String(Math.max(1, 100000 - Math.round(distance)));
+          marker.style.setProperty("--point-scale", String(screenScale));
+        });
+        postSelectedPointScreen();
+        postSelectedSpatialScreen();
+      };
+
+      const pointAtScreenPosition = (position) => {
+        let nearestId;
+        let nearestDistance = Number.POSITIVE_INFINITY;
+        pointEntities.forEach((entry, id) => {
+          if (!entry.visible || !entry.screenPosition || entry.marker.hidden) return;
+          const scale = entry.screenScale || 1;
+          const centerX = entry.screenPosition.x;
+          const centerY = entry.group === "research"
+            ? entry.screenPosition.y
+            : entry.screenPosition.y - 27 * scale;
+          const dx = position.x - centerX;
+          const dy = position.y - centerY;
+          const distance = entry.group === "research"
+            ? Math.hypot(dx, dy)
+            : Math.hypot(dx, dy * .78);
+          const hitRadius = entry.group === "research" ? Math.max(10, 8 * scale) : 29 * scale;
+          if (distance <= hitRadius && distance < nearestDistance) {
+            nearestDistance = distance;
+            nearestId = id;
+          }
+        });
+        return nearestId;
+      };
+      const updatePointWorldPositions = async (signature) => {
+        const entries = pointPayload.map((point) => ({
+          point,
+          cartographic: Cesium.Cartographic.fromDegrees(
+            Number(point.longitude),
+            Number(point.latitude),
+          ),
+        }));
+        if (terrainSampler) {
+          entries.forEach((entry) => {
+            entry.cartographic.height = terrainSampler(
+              Cesium.Math.toDegrees(entry.cartographic.longitude),
+              Cesium.Math.toDegrees(entry.cartographic.latitude),
+            );
+          });
+        } else if (terrainProvider && terrainReady) {
+          try {
+            await Cesium.sampleTerrainMostDetailed(
+              terrainProvider,
+              entries.map((entry) => entry.cartographic),
+            );
+          } catch {
+            entries.forEach((entry) => { entry.cartographic.height = modelCenter.height; });
+          }
+        } else {
+          entries.forEach((entry) => { entry.cartographic.height = modelCenter.height; });
+        }
+        if (signature !== pointPayloadSignature) return;
+        entries.forEach(({ point, cartographic }) => {
+          const entry = pointEntities.get(point.id);
+          if (!entry) return;
+          const height = Number.isFinite(cartographic.height) ? cartographic.height : modelCenter.height;
+          entry.worldPosition = Cesium.Cartesian3.fromRadians(
+            cartographic.longitude,
+            cartographic.latitude,
+            height + 2,
+          );
+          entry.entity.position = entry.worldPosition;
+        });
+        body.dataset.pinGrounded = "true";
+        updatePointOverlay();
+        viewer.scene.requestRender();
+      };
+
+      const focusPoint = async (id, shouldSelect = true) => {
+        const point = pointsById.get(id);
+        if (!point || !viewer) return;
+        body.dataset.lastCameraAction = "point-focus-animation";
+        if (shouldSelect) selectPoint(id, false);
+        const groundHeight = await terrainHeightAt(Number(point.longitude), Number(point.latitude));
+        const target = Cesium.Cartesian3.fromDegrees(
+          Number(point.longitude),
+          Number(point.latitude),
+          groundHeight + 2,
+        );
+        viewer.camera.flyToBoundingSphere(
+          new Cesium.BoundingSphere(target, 1),
+          {
+            offset: new Cesium.HeadingPitchRange(0, Cesium.Math.toRadians(-58), 520),
+            duration: .9,
+          },
+        );
+      };
+
+      const flyToAllPoints = () => {
+        if (!viewer || !pointPayload.length) return;
+        body.dataset.lastCameraAction = "show-all-points-animation";
+        const longitudes = pointPayload.map((point) => Number(point.longitude));
+        const latitudes = pointPayload.map((point) => Number(point.latitude));
+        const west = Math.min(...longitudes);
+        const east = Math.max(...longitudes);
+        const south = Math.min(...latitudes);
+        const north = Math.max(...latitudes);
+        const longitudePadding = Math.max((east - west) * .16, .0025);
+        const latitudePadding = Math.max((north - south) * .16, .0025);
+        viewer.camera.flyTo({
+          destination: Cesium.Rectangle.fromDegrees(
+            west - longitudePadding,
+            south - latitudePadding,
+            east + longitudePadding,
+            north + latitudePadding,
+          ),
+          duration: 1.1,
+        });
+      };
+
+      const setVillageCamera = (animated = false) => {
+        if (!viewer) return;
+        const target = Cesium.Cartesian3.fromDegrees(
+          modelCenter.longitude,
+          modelCenter.latitude,
+          modelCenter.height,
+        );
+        const offset = new Cesium.HeadingPitchRange(
+          Cesium.Math.toRadians(villageView.heading),
+          Cesium.Math.toRadians(villageView.pitch),
+          villageView.range,
+        );
+        if (animated) {
+          body.dataset.lastCameraAction = "return-center-animation";
+          viewer.camera.flyToBoundingSphere(new Cesium.BoundingSphere(target, 1), {
+            offset,
+            duration: .8,
+          });
+        } else {
+          body.dataset.lastCameraAction = "initial-village-set-view";
+          viewer.camera.lookAt(target, offset);
+          viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
+          body.dataset.initialViewApplied = "true";
+          viewer.scene.requestRender();
+        }
+      };
+
+      const flyToModel = () => {
+        setVillageCamera(true);
+      };
+
+      const applyPointFilter = () => {
+        let visibleCount = 0;
+        const topicActive = waterTopicMode !== "off";
+        const matchesMode = (system) => waterTopicMode === "overview" || system === "both" || system === waterTopicMode;
+        const nodeSystems = new Map((waterSystemPayload?.nodes || []).map((node) => [node.id, node.system || "both"]));
+        pointEntities.forEach((entry, id) => {
+          const waterSystemBranch = pointsById.get(id)?.waterSystemBranch || nodeSystems.get(id) || "both";
+          const visible = topicActive
+            ? entry.group === "water" && matchesMode(waterSystemBranch)
+            : activePointGroups.has(entry.group);
+          entry.visible = visible;
+          entry.entity.show = visible;
+          if (!visible) entry.marker.hidden = true;
+          if (visible) visibleCount += 1;
+        });
+        const waterVisible = topicActive || activePointGroups.has("water");
+        spatialEntities.forEach((entry) => {
+          const visible = waterVisible && (!topicActive || matchesMode(entry.item.system || "both"));
+          entry.visible = visible;
+          entry.entity.show = visible;
+          (entry.auxiliaryEntities || []).forEach((entity) => {
+            entity.show = visible;
+          });
+          if (visible) visibleCount += 1;
+        });
+        if ((!waterVisible || (selectedSpatialId && !spatialEntities.get(selectedSpatialId)?.visible)) && selectedSpatialId) clearSpatial();
+        if (selectedPointId && !pointEntities.get(selectedPointId)?.visible) clearPoint();
+        body.dataset.visiblePointCount = String(visibleCount);
+        body.dataset.selectedPointTypes = Array.from(activePointGroups).join(",");
+        countElement.textContent = `${visibleCount}/${pointEntities.size + spatialEntities.size}个要素`;
+        pointFilterToggleCount.textContent = `${visibleCount} 个`;
+        updatePointOverlay();
+        viewer?.scene.requestRender();
+      };
+
+      const setWaterTopicMode = (mode) => {
+        waterTopicMode = ["overview", "supply", "drainage"].includes(mode) ? mode : "off";
+        body.dataset.waterTopicMode = waterTopicMode;
+        body.classList.toggle("water-topic-active", waterTopicMode !== "off");
+        applyPointFilter();
+      };
+
+      const setWaterRelations = (ids) => {
+        relatedWaterIds = new Set(Array.isArray(ids) ? ids.filter((id) => typeof id === "string") : []);
+        pointEntities.forEach((_, id) => setEntityAppearance(id));
+        spatialEntities.forEach((_, id) => setSpatialAppearance(id));
+        viewer?.scene.requestRender();
+      };
+
+      const renderPointFilters = () => {
+        const counts = new Map();
+        pointPayload.forEach((point) => {
+          const group = categoryGroup(point.featureType);
+          counts.set(group, (counts.get(group) || 0) + 1);
+        });
+        if (spatialEntities.size) counts.set("water", (counts.get("water") || 0) + spatialEntities.size);
+        activePointGroups = externalPointGroups === null
+          ? new Set(counts.keys())
+          : new Set(Array.from(externalPointGroups).filter((group) => Object.hasOwn(pointCategoryLabels, group)));
+        filterElement.replaceChildren();
+        Object.keys(pointCategoryLabels).forEach((group) => {
+          const count = counts.get(group);
+          if (!count) return;
+          const label = document.createElement("label");
+          label.className = "point-filter-option";
+          const input = document.createElement("input");
+          input.type = "checkbox";
+          input.checked = activePointGroups.has(group);
+          input.value = group;
+          input.addEventListener("change", () => {
+            if (input.checked) activePointGroups.add(group);
+            else activePointGroups.delete(group);
+            applyPointFilter();
+          });
+          const name = document.createElement("span");
+          name.textContent = pointCategoryLabels[group];
+          const amount = document.createElement("i");
+          amount.textContent = String(count);
+          label.append(input, name, amount);
+          filterElement.append(label);
+        });
+      };
+
+      const setExternalPointGroups = (groups) => {
+        externalPointGroups = new Set(
+          (Array.isArray(groups) ? groups : [])
+            .filter((group) => typeof group === "string" && Object.hasOwn(pointCategoryLabels, group)),
+        );
+        activePointGroups = new Set(externalPointGroups);
+        filterElement.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+          input.checked = activePointGroups.has(input.value);
+        });
+        applyPointFilter();
+      };
+
+      const setAllPointTypes = (checked) => {
+        activePointGroups = new Set();
+        filterElement.querySelectorAll('input[type="checkbox"]').forEach((input) => {
+          input.checked = checked;
+          if (checked) activePointGroups.add(input.value);
+        });
+        applyPointFilter();
+      };
+
+      const setPoints = (points) => {
+        if (!viewer) return;
+        const nextPayload = Array.from(
+          new Map((Array.isArray(points) ? points : []).filter(validPoint).map((point) => [point.id, point])).values(),
+        );
+        const nextSignature = nextPayload
+          .map((point) => `${point.id}:${Number(point.longitude).toFixed(8)}:${Number(point.latitude).toFixed(8)}`)
+          .join("|");
+        if (nextSignature === pointPayloadSignature && pointEntities.size === nextPayload.length) return;
+        pointPayloadSignature = nextSignature;
+        body.dataset.pointInitializationCount = String(
+          Number(body.dataset.pointInitializationCount || "0") + 1,
+        );
+        body.dataset.pinGrounded = "false";
+        pointEntities.forEach((entry) => viewer.entities.remove(entry.entity));
+        pointOverlay.replaceChildren();
+        pointEntities.clear();
+        pointsById.clear();
+        selectedPointId = undefined;
+        hoveredPointId = undefined;
+        pointPayload = nextPayload;
+        pointPayload.forEach((point) => {
+          const group = categoryGroup(point.featureType);
+          const color = pinColor(group, point.color);
+          const worldPosition = Cesium.Cartesian3.fromDegrees(
+            Number(point.longitude),
+            Number(point.latitude),
+            modelCenter.height + 2,
+          );
+          const entity = viewer.entities.add({
+            id: `hongtang-point-${point.id}`,
+            position: worldPosition,
+          });
+          entity.hongtangPointId = point.id;
+          const marker = createPinMarker(point, group, color);
+          pointEntities.set(point.id, {
+            entity,
+            group,
+            marker,
+            worldPosition,
+            visible: true,
+            emphasisScale: 1,
+          });
+          pointsById.set(point.id, point);
+        });
+        body.dataset.realPointCount = String(pointPayload.length);
+        body.dataset.researchPointCount = String(pointPayload.filter((point) => categoryGroup(point.featureType) === "research").length);
+        body.dataset.supportingPointCount = String(pointPayload.filter((point) => ["public", "ecology", "research"].includes(categoryGroup(point.featureType))).length);
+        renderPointFilters();
+        applyPointFilter();
+        void updatePointWorldPositions(nextSignature);
+        if (pointPayload.length) setStatus(`已载入${pointPayload.length + spatialEntities.size}个地图要素，可点击查看资料。`, "ready");
+      };
+      const centerWorldPoint = () => {
+        if (!viewer) return;
+        const canvas = viewer.scene.canvas;
+        const center = new Cesium.Cartesian2(canvas.clientWidth / 2, canvas.clientHeight / 2);
+        const ray = viewer.camera.getPickRay(center);
+        return ray ? viewer.scene.globe.pick(ray, viewer.scene) : undefined;
+      };
+
+      const cameraSnapshot = () => ({
+        position: Cesium.Cartesian3.clone(viewer.camera.positionWC),
+        direction: Cesium.Cartesian3.clone(viewer.camera.directionWC),
+        up: Cesium.Cartesian3.clone(viewer.camera.upWC),
+        right: Cesium.Cartesian3.clone(viewer.camera.rightWC),
+        height: viewer.camera.positionCartographic.height,
+      });
+
+      const cameraSnapshotForTest = () => {
+        const snapshot = cameraSnapshot();
+        return {
+          position: [snapshot.position.x, snapshot.position.y, snapshot.position.z],
+          direction: [snapshot.direction.x, snapshot.direction.y, snapshot.direction.z],
+          up: [snapshot.up.x, snapshot.up.y, snapshot.up.z],
+          right: [snapshot.right.x, snapshot.right.y, snapshot.right.z],
+          height: snapshot.height,
+        };
+      };
+
+      const setCameraWorldPose = ({ position, direction, up, right }) => {
+        viewer.camera.position = Cesium.Cartesian3.clone(position);
+        viewer.camera.direction = Cesium.Cartesian3.normalize(direction, new Cesium.Cartesian3());
+        viewer.camera.up = Cesium.Cartesian3.normalize(up, new Cesium.Cartesian3());
+        viewer.camera.right = Cesium.Cartesian3.normalize(right, new Cesium.Cartesian3());
+      };
+
+      const rotateVector = (vector, axis, angle) => {
+        const quaternion = Cesium.Quaternion.fromAxisAngle(axis, angle, new Cesium.Quaternion());
+        const matrix = Cesium.Matrix3.fromQuaternion(quaternion, new Cesium.Matrix3());
+        return Cesium.Matrix3.multiplyByVector(matrix, vector, new Cesium.Cartesian3());
+      };
+
+      const vectorAngle = (left, right) => {
+        const leftUnit = Cesium.Cartesian3.normalize(left, new Cesium.Cartesian3());
+        const rightUnit = Cesium.Cartesian3.normalize(right, new Cesium.Cartesian3());
+        const sine = Cesium.Cartesian3.magnitude(
+          Cesium.Cartesian3.cross(leftUnit, rightUnit, new Cesium.Cartesian3()),
+        );
+        const cosine = Cesium.Math.clamp(Cesium.Cartesian3.dot(leftUnit, rightUnit), -1, 1);
+        return Math.atan2(sine, cosine);
+      };
+
+      const snapshotDelta = (before, after) => Math.max(
+        Cesium.Cartesian3.distance(before.position, after.position),
+        vectorAngle(before.direction, after.direction),
+        vectorAngle(before.up, after.up),
+      );
+
+      const cameraElevationAtPivot = (pivot, position = viewer.camera.positionWC) => {
+        const localUp = viewer.scene.globe.ellipsoid.geodeticSurfaceNormal(
+          pivot,
+          new Cesium.Cartesian3(),
+        );
+        const offset = Cesium.Cartesian3.subtract(position, pivot, new Cesium.Cartesian3());
+        return Math.asin(Cesium.Math.clamp(
+          Cesium.Cartesian3.dot(
+            Cesium.Cartesian3.normalize(offset, new Cesium.Cartesian3()),
+            localUp,
+          ),
+          -1,
+          1,
+        ));
+      };
+
+      const rotateCameraAroundPivot = (pivot, yawPixels, dy) => {
+        const sensitivity = Number(orbitInput.value);
+        const before = cameraSnapshot();
+        const localUp = viewer.scene.globe.ellipsoid.geodeticSurfaceNormal(
+          pivot,
+          new Cesium.Cartesian3(),
+        );
+        let offset = Cesium.Cartesian3.subtract(before.position, pivot, new Cesium.Cartesian3());
+        let direction = before.direction;
+        let up = before.up;
+        let right = before.right;
+
+        const yaw = yawPixels * .0042 * sensitivity;
+        body.dataset.lastOrbitYaw = String(yaw);
+        if (yaw) {
+          offset = rotateVector(offset, localUp, yaw);
+          direction = rotateVector(direction, localUp, yaw);
+          up = rotateVector(up, localUp, yaw);
+          right = rotateVector(right, localUp, yaw);
+        }
+
+        if (dy) {
+          const offsetUnit = Cesium.Cartesian3.normalize(offset, new Cesium.Cartesian3());
+          const currentElevation = Math.asin(
+            Cesium.Math.clamp(Cesium.Cartesian3.dot(offsetUnit, localUp), -1, 1),
+          );
+          const desiredElevation = Cesium.Math.clamp(
+            currentElevation + dy * .0034 * sensitivity,
+            Cesium.Math.toRadians(3),
+            Cesium.Math.toRadians(88),
+          );
+          const pitchAxis = Cesium.Cartesian3.normalize(right, new Cesium.Cartesian3());
+          let pitchRotation = currentElevation - desiredElevation;
+          const candidate = rotateVector(offset, pitchAxis, pitchRotation);
+          const candidateElevation = Math.asin(Cesium.Math.clamp(
+            Cesium.Cartesian3.dot(
+              Cesium.Cartesian3.normalize(candidate, new Cesium.Cartesian3()),
+              localUp,
+            ),
+            -1,
+            1,
+          ));
+          if (Math.abs(candidateElevation - desiredElevation) > Math.abs(currentElevation - desiredElevation)) {
+            pitchRotation = -pitchRotation;
+          }
+          offset = rotateVector(offset, pitchAxis, pitchRotation);
+          direction = rotateVector(direction, pitchAxis, pitchRotation);
+          up = rotateVector(up, pitchAxis, pitchRotation);
+          right = rotateVector(right, pitchAxis, pitchRotation);
+        }
+
+        const position = Cesium.Cartesian3.add(pivot, offset, new Cesium.Cartesian3());
+        direction = Cesium.Cartesian3.normalize(
+          Cesium.Cartesian3.subtract(pivot, position, new Cesium.Cartesian3()),
+          new Cesium.Cartesian3(),
+        );
+        right = Cesium.Cartesian3.normalize(
+          Cesium.Cartesian3.cross(direction, up, new Cesium.Cartesian3()),
+          new Cesium.Cartesian3(),
+        );
+        up = Cesium.Cartesian3.normalize(
+          Cesium.Cartesian3.cross(right, direction, new Cesium.Cartesian3()),
+          new Cesium.Cartesian3(),
+        );
+        setCameraWorldPose({ position, direction, up, right });
+        const after = cameraSnapshot();
+        body.dataset.orbitCurrentElevation = String(cameraElevationAtPivot(pivot, after.position));
+        body.dataset.orbitCenterError = String(vectorAngle(
+          after.direction,
+          Cesium.Cartesian3.subtract(pivot, after.position, new Cesium.Cartesian3()),
+        ));
+      };
+
+      const installControls = () => {
+        const controller = viewer.scene.screenSpaceCameraController;
+        controller.enableRotate = false;
+        controller.enableTranslate = false;
+        controller.enableZoom = false;
+        controller.enableTilt = false;
+        controller.enableLook = false;
+        controller.inertiaSpin = 0;
+        controller.inertiaTranslate = 0;
+        controller.inertiaZoom = 0;
+        const handler = new Cesium.ScreenSpaceEventHandler(viewer.scene.canvas);
+        let leftDragging = false;
+        let rightDragging = false;
+        let lastPosition;
+        let orbitPivot;
+        let orbitScreenCenter;
+        let panPlane;
+        let panNormal;
+        let dragDistance = 0;
+
+        handler.setInputAction((movement) => {
+          leftDragging = true;
+          rightDragging = false;
+          dragDistance = 0;
+          lastPosition = Cesium.Cartesian2.clone(movement.position);
+          const panPivot = centerWorldPoint();
+          panNormal = panPivot
+            ? viewer.scene.globe.ellipsoid.geodeticSurfaceNormal(panPivot, new Cesium.Cartesian3())
+            : undefined;
+          panPlane = panPivot && panNormal ? Cesium.Plane.fromPointNormal(panPivot, panNormal) : undefined;
+        }, Cesium.ScreenSpaceEventType.LEFT_DOWN);
+        handler.setInputAction((movement) => {
+          rightDragging = true;
+          leftDragging = false;
+          dragDistance = 0;
+          lastPosition = Cesium.Cartesian2.clone(movement.position);
+          const before = cameraSnapshot();
+          orbitPivot = centerWorldPoint();
+          const canvas = viewer.scene.canvas;
+          orbitScreenCenter = new Cesium.Cartesian2(
+            canvas.clientWidth / 2,
+            canvas.clientHeight / 2,
+          );
+          if (orbitPivot) {
+            const elevation = cameraElevationAtPivot(orbitPivot, before.position);
+            body.dataset.orbitStartElevation = String(elevation);
+            body.dataset.orbitCurrentElevation = String(elevation);
+          }
+          body.dataset.rightPressJump = String(snapshotDelta(before, cameraSnapshot()));
+        }, Cesium.ScreenSpaceEventType.RIGHT_DOWN);
+        handler.setInputAction((movement) => {
+          if (!leftDragging && !rightDragging) {
+            const id = pointAtScreenPosition(movement.endPosition);
+            const spatialId = id ? undefined : spatialAtScreenPosition(movement.endPosition);
+            setHoveredPoint(id);
+            viewer.scene.canvas.style.cursor = id || spatialId ? "pointer" : "default";
+            return;
+          }
+          const current = movement.endPosition;
+          const dx = current.x - lastPosition.x;
+          const dy = current.y - lastPosition.y;
+          dragDistance += Math.abs(dx) + Math.abs(dy);
+          if (leftDragging && panPlane && panNormal) {
+            const previousRay = viewer.camera.getPickRay(lastPosition);
+            const currentRay = viewer.camera.getPickRay(current);
+            const previousWorld = previousRay && Cesium.IntersectionTests.rayPlane(
+              previousRay,
+              panPlane,
+              new Cesium.Cartesian3(),
+            );
+            const currentWorld = currentRay && Cesium.IntersectionTests.rayPlane(
+              currentRay,
+              panPlane,
+              new Cesium.Cartesian3(),
+            );
+            if (previousWorld && currentWorld) {
+              const delta = Cesium.Cartesian3.subtract(previousWorld, currentWorld, new Cesium.Cartesian3());
+              const verticalComponent = Cesium.Cartesian3.dot(delta, panNormal);
+              Cesium.Cartesian3.subtract(
+                delta,
+                Cesium.Cartesian3.multiplyByScalar(
+                  panNormal,
+                  verticalComponent,
+                  new Cesium.Cartesian3(),
+                ),
+                delta,
+              );
+              Cesium.Cartesian3.multiplyByScalar(delta, Number(panInput.value), delta);
+              const before = cameraSnapshot();
+              viewer.camera.position = Cesium.Cartesian3.add(before.position, delta, new Cesium.Cartesian3());
+              viewer.camera.direction = before.direction;
+              viewer.camera.up = before.up;
+              viewer.camera.right = before.right;
+              body.dataset.lastPanVerticalDelta = String(
+                Math.abs(Cesium.Cartesian3.dot(delta, panNormal)),
+              );
+              viewer.scene.requestRender();
+            }
+          } else if (rightDragging && orbitPivot && orbitScreenCenter) {
+            const relativeX = lastPosition.x - orbitScreenCenter.x;
+            const relativeY = lastPosition.y - orbitScreenCenter.y;
+            const radius = Math.hypot(relativeX, relativeY);
+            const yawPixels = radius > 36
+              ? (-relativeY * dx) / radius
+              : dx;
+            rotateCameraAroundPivot(orbitPivot, yawPixels, dy);
+            viewer.scene.requestRender();
+          }
+          lastPosition = Cesium.Cartesian2.clone(current);
+        }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
+        handler.setInputAction((movement) => {
+          leftDragging = false;
+          panPlane = undefined;
+          panNormal = undefined;
+          if (dragDistance < 7) {
+            const id = pointAtScreenPosition(movement.position);
+            if (id) selectPoint(id);
+            else {
+              const spatialId = spatialAtScreenPosition(movement.position);
+              if (spatialId) selectSpatial(spatialId, movement.position);
+              else {
+                clearPoint(false);
+                clearSpatial(false);
+                postToParent({ type: "hongtang-gaussian-selection-clear" });
+              }
+            }
+          }
+        }, Cesium.ScreenSpaceEventType.LEFT_UP);
+        handler.setInputAction(() => {
+          const before = cameraSnapshot();
+          rightDragging = false;
+          orbitPivot = undefined;
+          orbitScreenCenter = undefined;
+          body.dataset.rightReleaseJump = String(snapshotDelta(before, cameraSnapshot()));
+          viewer.scene.requestRender();
+        }, Cesium.ScreenSpaceEventType.RIGHT_UP);
+        handler.setInputAction((delta) => {
+          if (wheelLocked || leftDragging || rightDragging) return;
+          wheelLocked = true;
+          window.setTimeout(() => { wheelLocked = false; }, 120);
+          const pivot = centerWorldPoint();
+          const sensitivity = Number(zoomInput.value) * ZOOM_SENSITIVITY_LEGACY_SCALE;
+          const ratio = Math.min(.55, .095 * sensitivity);
+          const before = cameraSnapshot();
+          if (pivot) {
+            const offset = Cesium.Cartesian3.subtract(before.position, pivot, new Cesium.Cartesian3());
+            const range = Cesium.Cartesian3.magnitude(offset);
+            const zoomIn = delta > 0;
+            const nextRange = Math.max(28, range * (zoomIn ? 1 - ratio : 1 + ratio));
+            const scaledOffset = Cesium.Cartesian3.multiplyByScalar(
+              offset,
+              nextRange / range,
+              new Cesium.Cartesian3(),
+            );
+            setCameraWorldPose({
+              position: Cesium.Cartesian3.add(pivot, scaledOffset, new Cesium.Cartesian3()),
+              direction: before.direction,
+              up: before.up,
+              right: before.right,
+            });
+          } else {
+            const distance = before.height * ratio * (delta > 0 ? 1 : -1);
+            setCameraWorldPose({
+              position: Cesium.Cartesian3.add(
+                before.position,
+                Cesium.Cartesian3.multiplyByScalar(
+                  before.direction,
+                  distance,
+                  new Cesium.Cartesian3(),
+                ),
+                new Cesium.Cartesian3(),
+              ),
+              direction: before.direction,
+              up: before.up,
+              right: before.right,
+            });
+          }
+          const after = cameraSnapshot();
+          body.dataset.lastWheelOrientationDelta = String(Math.max(
+            vectorAngle(before.direction, after.direction),
+            vectorAngle(before.up, after.up),
+          ));
+          viewer.scene.requestRender();
+        }, Cesium.ScreenSpaceEventType.WHEEL);
+      };
+      const initialize = async () => {
+        if (!window.Cesium) throw new Error("CesiumJS 未能加载");
+        const endpoint = await fetchCesiumEndpoint();
+        if (endpoint.mode === "client-ion") {
+          Cesium.Ion.defaultAccessToken = endpoint.accessToken;
+          body.dataset.ionAccessMode = "browser";
+        }
+        body.dataset.ionModelAssetId = String(endpoint.assetId || 4908525);
+
+        try {
+          terrainProvider = await withTimeout(
+            createIonTerrain(endpoint),
+            8000,
+            "Cesium世界地形连接超时",
+          );
+          terrainReady = true;
+          body.dataset.terrainReady = "true";
+        } catch (error) {
+          console.warn("Cesium 世界地形加载失败，暂时使用基础球面。", error);
+          terrainProvider = new Cesium.EllipsoidTerrainProvider();
+          try {
+            await loadLocalTerrainSampler();
+            body.dataset.terrainMode = "local-height-overlay";
+            body.dataset.terrainContext = "local-height-grid";
+          } catch (heightError) {
+            console.warn("红塘本地高程网格加载失败。", heightError);
+            body.dataset.localHeightSamplerReady = "false";
+            body.dataset.terrainMode = "ellipsoid-fallback";
+            body.dataset.terrainContext = "ellipsoid-fallback";
+          }
+        }
+
+        viewer = new Cesium.Viewer("cesiumContainer", {
+          animation: false,
+          baseLayer: false,
+          baseLayerPicker: false,
+          fullscreenButton: false,
+          geocoder: false,
+          homeButton: false,
+          infoBox: false,
+          navigationHelpButton: false,
+          sceneModePicker: false,
+          selectionIndicator: false,
+          timeline: false,
+          terrainProvider,
+          requestRenderMode: true,
+          maximumRenderTimeChange: Number.POSITIVE_INFINITY,
+        });
+        setVillageCamera(false);
+        viewer.scene.globe.show = terrainReady;
+        if (!terrainReady) {
+          if (viewer.scene.skyBox) viewer.scene.skyBox.show = false;
+          if (viewer.scene.skyAtmosphere) viewer.scene.skyAtmosphere.show = false;
+          if (viewer.scene.sun) viewer.scene.sun.show = false;
+          if (viewer.scene.moon) viewer.scene.moon.show = false;
+          viewer.scene.backgroundColor = Cesium.Color.fromCssColorString("#d7dfd3");
+        }
+        viewer.scene.globe.depthTestAgainstTerrain = false;
+        viewer.scene.globe.maximumScreenSpaceError = 6;
+        viewer.scene.globe.baseColor = Cesium.Color.fromCssColorString("#d7dfd3");
+        viewer.scene.highDynamicRange = false;
+        viewer.scene.postProcessStages.fxaa.enabled = true;
+        viewer.scene.screenSpaceCameraController.minimumZoomDistance = 24;
+        viewer.scene.screenSpaceCameraController.maximumZoomDistance = 220000;
+        viewer.scene.preRender.addEventListener(updatePointOverlay);
+        registerEndpointAttributions(endpoint);
+        applyQuality(qualitySelect.value);
+        installControls();
+
+        const setupTasks = [];
+        setupTasks.push(
+          addEnvironmentImagery(endpoint)
+            .catch((error) => console.error(error)),
+        );
+        const tilesetOptions = {
+          maximumScreenSpaceError: 16,
+          dynamicScreenSpaceError: true,
+          skipLevelOfDetail: false,
+        };
+        const ionTilesetPromise = endpoint.mode === "client-ion"
+          ? Cesium.Cesium3DTileset.fromIonAssetId(Number(endpoint.assetId), tilesetOptions)
+          : Cesium.Cesium3DTileset.fromUrl(endpointResource(endpoint), tilesetOptions);
+        const tilesetPromise = withTimeout(
+          ionTilesetPromise,
+          12000,
+          "Cesium在线高斯模型连接超时",
+        ).then((loadedTileset) => {
+          body.dataset.modelSource = "cesium-ion";
+          return loadedTileset;
+        }).catch(async (error) => {
+          console.warn("Cesium在线高斯模型加载失败，切换到本地高斯模型。", error);
+          body.dataset.modelSource = "local-fallback";
+          return withTimeout(
+            Cesium.Cesium3DTileset.fromUrl(localModelUrl, tilesetOptions),
+            20000,
+            "本地高斯模型读取超时",
+          );
+        });
+        setupTasks.push(
+          tilesetPromise.then((loadedTileset) => {
+            tileset = viewer.scene.primitives.add(loadedTileset);
+            modelReady = true;
+            body.dataset.modelReady = "true";
+            applyQuality(qualitySelect.value);
+          }),
+        );
+        await Promise.allSettled(setupTasks);
+        if (!modelReady) throw new Error("Cesium ion 中的红塘村高斯模型没有完成加载");
+
+        viewerReady = true;
+        body.dataset.cesiumReady = "true";
+        setStatus(
+          terrainReady
+            ? "Cesium 世界地形、航空影像与红塘实景已就绪，正在载入地点…"
+            : "红塘实景和专题要素已就绪，周边世界地形暂未连接。",
+          "ready",
+        );
+        postToParent({ type: "hongtang-gaussian-ready", engine: "cesiumjs" });
+        if (pointPayload.length) setPoints(pointPayload);
+        if (waterSystemPayload) setSpatialLayers(waterSystemPayload);
+      };
+      selectAllPointTypesButton.addEventListener("click", () => setAllPointTypes(true));
+      clearPointTypesButton.addEventListener("click", () => setAllPointTypes(false));
+      pointFilterToggle.addEventListener("click", () => setPointFilterOpen(!pointFilterPanel.classList.contains("open")));
+      closePointFilterButton.addEventListener("click", () => setPointFilterOpen(false));
+      document.getElementById("showAllButton").addEventListener("click", flyToAllPoints);
+      document.getElementById("centerButton").addEventListener("click", flyToModel);
+      settingsButton.addEventListener("click", () => {
+        const nextOpen = settingsPanel.hidden;
+        settingsPanel.hidden = !nextOpen;
+        settingsButton.setAttribute("aria-expanded", String(nextOpen));
+      });
+      document.getElementById("fullscreenButton").addEventListener("click", async () => {
+        try {
+          if (!document.fullscreenElement) await document.documentElement.requestFullscreen();
+          else await document.exitFullscreen();
+        } catch {
+          setStatus("当前浏览器没有允许全屏显示。", "error");
+        }
+      });
+      [
+        [panInput, document.getElementById("panValue")],
+        [orbitInput, document.getElementById("orbitValue")],
+        [zoomInput, document.getElementById("zoomValue")],
+      ].forEach(([input, output]) => input.addEventListener("input", () => { output.value = Number(input.value).toFixed(1); }));
+      qualitySelect.addEventListener("change", () => applyQuality(qualitySelect.value));
+      window.addEventListener("contextmenu", (event) => event.preventDefault());
+      window.addEventListener("message", (event) => {
+        if (event.origin !== parentOrigin) return;
+        if (event.data?.type === "hongtang-gaussian-points-set") {
+          const nextPoints = Array.isArray(event.data.points) ? event.data.points : [];
+          if (viewer) setPoints(nextPoints);
+          else pointPayload = nextPoints;
+        }
+        if (event.data?.type === "hongtang-gaussian-spatial-set") {
+          const nextWaterSystem = event.data.waterSystem;
+          if (viewer) setSpatialLayers(nextWaterSystem);
+          else waterSystemPayload = nextWaterSystem;
+        }
+        if (event.data?.type === "hongtang-gaussian-water-topic-mode") setWaterTopicMode(event.data.mode);
+        if (event.data?.type === "hongtang-gaussian-filter-groups-set") setExternalPointGroups(event.data.groups);
+        if (event.data?.type === "hongtang-gaussian-water-relation-set") setWaterRelations(event.data.ids);
+        if (event.data?.type === "hongtang-gaussian-water-select" && typeof event.data.id === "string") {
+          if (pointEntities.has(event.data.id)) selectPoint(event.data.id);
+          else if (spatialEntities.has(event.data.id)) selectSpatial(event.data.id);
+        }
+        if (event.data?.type === "hongtang-gaussian-point-clear") clearPoint();
+        if (event.data?.type === "hongtang-gaussian-spatial-clear") clearSpatial();
+        if (event.data?.type === "hongtang-gaussian-point-focus") focusPoint(event.data.id);
+        if (event.data?.type === "hongtang-gaussian-detail-state") body.classList.toggle("detail-open", Boolean(event.data.open));
+        if (event.data?.type === "hongtang-gaussian-status-request") {
+          if (viewerReady) {
+            postToParent({ type: "hongtang-gaussian-ready", engine: "cesiumjs" });
+          } else if (viewerFailureMessage) {
+            postToParent({
+              type: "hongtang-gaussian-error",
+              message: viewerFailureMessage,
+            });
+          }
+        }
+      });
+
+      window.__hongtangCesium = { selectPoint, selectSpatial, focusPoint, flyToAllPoints, flyToModel, setSpatialLayers, cameraSnapshot: cameraSnapshotForTest };
+      initialize().catch((error) => {
+        console.error(error);
+        viewerFailureMessage = error?.message || "三维场景加载失败";
+        setStatus(viewerFailureMessage, "error");
+        postToParent({
+          type: "hongtang-gaussian-error",
+          message: viewerFailureMessage,
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

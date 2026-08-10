@@ -1,0 +1,40 @@
+{
+  "coordinateSystem": "EPSG:4326",
+  "layers": [
+    {
+      "id": "hongtang-hand-drawn",
+      "title": "红塘村手绘图",
+      "type": "image",
+      "image": "/data/hongtang-handdrawn-map.png",
+      "width": 2048,
+      "height": 2870,
+      "bounds": [
+        [
+          24.626466269999977,
+          99.87903589790675
+        ],
+        [
+          24.685577823254807,
+          99.92124683196907
+        ]
+      ]
+    },
+    {
+      "id": "hongtang-buildings",
+      "title": "红塘村建筑",
+      "type": "geojson",
+      "data": "/data/hongtang-buildings-safe.geojson",
+      "featureCount": 1490,
+      "bounds": [
+        [
+          24.632635116577156,
+          99.88847360814586
+        ],
+        [
+          24.678653682650815,
+          99.9179187771809
+        ]
+      ]
+    }
+  ]
+}
