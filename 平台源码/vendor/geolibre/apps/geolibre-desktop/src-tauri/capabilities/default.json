@@ -1,0 +1,46 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "identifier": "default",
+  "description": "Default capabilities for GeoLibre Desktop",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "dialog:default",
+    "fs:default",
+    "fs:allow-read-dir",
+    "fs:allow-read-file",
+    "fs:allow-read-text-file",
+    "fs:allow-write-file",
+    "fs:allow-write-text-file",
+    "fs:allow-watch",
+    "fs:allow-unwatch",
+    "geolocation:allow-check-permissions",
+    "geolocation:allow-request-permissions",
+    "geolocation:allow-get-current-position",
+    "geolocation:allow-watch-position",
+    "geolocation:allow-clear-watch",
+    {
+      "comment": "Cleanup of the temporary GeoJSON the sidecar writes when a File Geodatabase layer is added (GdbSource); scoped to exactly that filename pattern so nothing else becomes deletable.",
+      "identifier": "fs:allow-remove",
+      "allow": [{ "path": "$TEMP/geolibre-gdb-*.geojson" }]
+    },
+    {
+      "identifier": "opener:allow-open-url",
+      "allow": [{ "url": "http://*" }, { "url": "https://*" }]
+    },
+    {
+      "comment": "Hosts routed through the native HTTP client to bypass the WebView's CORS. Geocoding (place search / reverse geocode): public Nominatim's CDN intermittently omits the CORS header on cached responses (rejected as 'Search failed'), and the native client can send the User-Agent Nominatim's policy requires — keep the geocoder hosts in sync with the GEOCODING_PROVIDERS registry / lib/geocoding-fetch.ts. share.geolibre.app (project Share + gallery) and datasets.geolibre.app (the built-in GeoLens service) have origin-restricted CORS policies that may not include the Tauri WebView origin — see lib/share-fetch.ts and lib/geolens-fetch.ts. Any custom/self-hosted service falls back to the browser fetch.",
+      "identifier": "http:default",
+      "allow": [
+        { "url": "https://nominatim.openstreetmap.org/*" },
+        { "url": "https://api.geocode.earth/*" },
+        { "url": "https://geocode.arcgis.com/*" },
+        { "url": "https://api.mapbox.com/*" },
+        { "url": "https://maps.googleapis.com/*" },
+        { "url": "https://www.cartociudad.es/*" },
+        { "url": "https://share.geolibre.app/*" },
+        { "url": "https://datasets.geolibre.app/*" }
+      ]
+    }
+  ]
+}

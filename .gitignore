@@ -1,39 +1,32 @@
-# dependencies
-/node_modules/
+# 这个仓库只发布平台源码与平台素材。
+/*
+!/.gitignore
+!/.gitattributes
+!/平台源码/
+!/平台素材/
 
-# Next.js
-/.next/
-/.next-stale-geolibre/
-/out/
-/public/local-photos/
+# 任何位置的本地密钥、依赖、构建产物与缓存都不进入仓库。
+**/.env
+**/.env.*
+!**/.env.example
+**/node_modules/
+**/.next/
+**/out/
+**/build/
+**/dist/
+**/__pycache__/
+**/*.py[cod]
+**/*.log
+**/Thumbs.db
+**/.DS_Store
 
-# production
-/build/
+# 素材工具链的编译缓存和嵌套仓库元数据不是平台素材。
+/平台素材/**/target/
+/平台素材/3D高斯展示/tools/spark/.git/
 
-# local environment variables and secrets
-.env*
-!.env.example
+# 含村民个人信息的原始调研数据只保留在本机。
+/平台素材/地图原始数据/building_attributes.json
+/平台素材/地图服务素材/红塘村建筑图层_WFS_原始.geojson
 
-# logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-
-# local tooling
-.vercel/
-/.agents/
-/.codex/
-/.deploy-source-repo/
-/.deploy-static/
-.DS_Store
-Thumbs.db
-__pycache__/
-*.pyc
-*.tsbuildinfo
-next-env.d.ts
-/.qa/
-
-# Supabase local runtime state
-/supabase/.branches/
-/supabase/.temp/
+# 此 DSM 原文件超过 GitHub LFS 单文件上限；仓库改存同目录的可还原分卷。
+/平台素材/Production_1-tif/Production_1-tif_DSM_merge.tif

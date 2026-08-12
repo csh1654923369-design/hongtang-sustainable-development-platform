@@ -1,0 +1,25 @@
+{
+  "downloadedAt": "2026-07-29",
+  "coordinateSystem": "EPSG:4326",
+  "layers": [
+    {
+      "id": "hongtang-buildings",
+      "title": "红塘村建筑图层",
+      "remoteLayer": "yunjiancun:530921101210",
+      "kind": "vector-and-raster",
+      "bounds": [[24.632635116577156, 99.88847360814586], [24.678653682650815, 99.9179187771809]],
+      "image": "红塘村建筑图层_WMS_2048x3200.png",
+      "geojson": "红塘村建筑图层_WFS_原始.geojson",
+      "featureCount": 1490
+    },
+    {
+      "id": "hongtang-hand-drawn",
+      "title": "红塘村手绘图层",
+      "remoteLayer": "yunjiancun:530921101210_Shouhuitu",
+      "kind": "raster",
+      "bounds": [[24.626466269999977, 99.87903589790675], [24.685577823254807, 99.92124683196907]],
+      "image": "红塘村手绘图层_WMS_2048x2870.png",
+      "geojson": null
+    }
+  ]
+}
