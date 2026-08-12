@@ -11,6 +11,7 @@ for (const relativePath of [
   "LICENSE",
   "package-lock.json",
   "apps/geolibre-desktop/src/App.tsx",
+  "apps/geolibre-desktop/src/components/panels/HongtangVectorLayerPanel.tsx",
   "apps/geolibre-desktop/vite.config.ts",
   "packages/core/src/index.ts",
   "backend/geolibre_server/pyproject.toml",

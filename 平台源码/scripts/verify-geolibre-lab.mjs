@@ -95,36 +95,40 @@ const mapCanvas = geoLibreFrame.locator("canvas.maplibregl-canvas").first();
 await mapCanvas.waitFor({ timeout: 30000 });
 const mapCanvasBox = await mapCanvas.boundingBox();
 assert(mapCanvasBox && mapCanvasBox.width > 500 && mapCanvasBox.height > 400, "GeoLibre map canvas should fill the workspace");
-for (const hiddenLabel of ["处理", "控件", "插件", "设置", "帮助"]) {
+for (const hiddenLabel of ["项目", "编辑", "视图", "添加数据", "处理", "控件", "插件", "设置", "帮助"]) {
   assert.equal(
     await geoLibreFrame.getByRole("button", { name: hiddenLabel, exact: true }).count(),
     0,
-    `${hiddenLabel} should be removed from the focused vector-editing profile`,
+    `${hiddenLabel} should be removed from the focused Hongtang workbench`,
   );
 }
-for (const visibleLabel of ["项目", "编辑", "视图", "添加数据"]) {
+await geoLibreFrame.getByRole("heading", { name: "编辑图层", exact: true }).waitFor();
+assert.equal(await geoLibreFrame.locator("[data-testid='hongtang-layer-list']").count(), 1);
+const layerRows = geoLibreFrame.locator("[data-testid='hongtang-layer-row']");
+await layerRows.first().waitFor({ timeout: 45000 });
+assert.equal(await layerRows.count(), 8);
+for (const requiredAction of ["定位", "改形", "属性", "导出"]) {
   assert.equal(
-    await geoLibreFrame.getByRole("button", { name: visibleLabel, exact: true }).count(),
+    await layerRows.first().getByRole("button", { name: requiredAction, exact: true }).count(),
     1,
-    `${visibleLabel} should remain available`,
+    `${requiredAction} should be available once per layer row`,
+  );
+}
+for (const removedText of ["地点搜索", "不透明度", "插入到下方", "样式类型"]) {
+  assert.equal(
+    await geoLibreFrame.getByText(removedText, { exact: false }).count(),
+    0,
+    `${removedText} should not appear in the focused workbench`,
   );
 }
 const geoEditorControl = geoLibreFrame.locator(".geo-editor-control");
 await geoEditorControl.waitFor({ state: "visible", timeout: 30000 });
-assert.equal(
-  await geoEditorControl.count(),
-  1,
-  "GeoEditor point/line/polygon toolbar should remain available",
-);
-const zoomButtons = geoLibreFrame.getByRole("button", { name: "缩放至图层", exact: true });
-try {
-  await zoomButtons.first().waitFor({ timeout: 45000 });
-} catch (error) {
-  await page.screenshot({ path: resolve(outputDir, "geolibre-lab-failure.png"), fullPage: false });
-  throw new Error(`${error instanceof Error ? error.message : String(error)}\n${diagnostics.join("\n")}`);
-}
-assert.equal(await zoomButtons.count(), 8);
-await zoomButtons.nth(4).click();
+assert.equal(await geoEditorControl.count(), 1, "GeoEditor point/line/polygon toolbar should remain available");
+assert.equal(await geoLibreFrame.locator(".maplibre-gl-layer-control:visible").count(), 0);
+assert.equal(await geoLibreFrame.locator(".maplibre-gl-basemap-control:visible").count(), 0);
+const locateButtons = geoLibreFrame.getByRole("button", { name: "定位", exact: true });
+assert.equal(await locateButtons.count(), 8);
+await locateButtons.nth(4).click();
 for (let attempt = 0; attempt < 12 && !mapResponses.some((item) => item.status === 200); attempt += 1) {
   await page.waitForTimeout(1000);
 }

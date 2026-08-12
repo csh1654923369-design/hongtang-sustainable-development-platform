@@ -71,8 +71,16 @@ export function layoutOptionsFromLocation(layoutSettings: DesktopLayoutSettings)
   const toolbarLabels =
     !compact && !ICON_TOOLBAR_VALUES.has(toolbar) ? layoutSettings.toolbarLabels : false;
   const showProjectInfo = compact || hongtangVectorProfile ? false : layoutSettings.showProjectInfo;
-  const layerPanelVisible = panelsHidden ? false : viewer ? true : layoutSettings.layerPanelVisible;
-  const stylePanelVisible = panelsHidden || viewer ? false : layoutSettings.stylePanelVisible;
+  const layerPanelVisible = panelsHidden
+    ? false
+    : hongtangVectorProfile
+      ? true
+      : viewer
+        ? true
+        : layoutSettings.layerPanelVisible;
+  const stylePanelVisible = panelsHidden || viewer || hongtangVectorProfile
+    ? false
+    : layoutSettings.stylePanelVisible;
   // The attribute table is hidden by default and opened on demand from a
   // vector layer's context menu, so it has no persisted settings toggle; it
   // only needs to be unmounted when the embed chrome is hidden.
@@ -87,7 +95,7 @@ export function layoutOptionsFromLocation(layoutSettings: DesktopLayoutSettings)
     statusBarVisible: !mapOnly && !hongtangVectorProfile,
     stylePanelVisible,
     toolbarLabels,
-    toolbarVisible: !mapOnly,
+    toolbarVisible: !mapOnly && !hongtangVectorProfile,
     viewer,
   };
 }

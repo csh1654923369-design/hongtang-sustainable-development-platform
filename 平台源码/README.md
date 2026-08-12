@@ -161,7 +161,7 @@ npm run prepare:orthophoto
 
 本地启动平台后，可点击首页右上角地图控制卡片最下方的“地图编辑 / GeoLibre专业工具”入口，在新窗口进入编辑页；也可直接访问 `http://localhost:3000/geolibre-lab`。编辑页只保留“返回平台”，不再重复显示“新窗口打开”。该页面内嵌本项目自托管的 GeoLibre v2.5.0，并通过 Supabase Edge Function 在每次打开时读取正式平台的最新公开空间数据。目前桥接为安全只读模式，共生成8个可独立显示、缩放、检查属性和编辑的图层：供水分区、供水线路、水系统节点、小花园、茶产业、村里用水设施、公共服务设施和村景记录。
 
-为避免通用 GIS 功能干扰日常维护，红塘专用界面只保留项目打开与保存、撤销与重做、选择与属性查看、图层管理、点线面绘制和几何编辑、样式调整、常用矢量数据导入以及 GeoJSON 导出。专业分析、三维数据、插件市场、外部地图跳转、打印故事图和诊断设置等入口已隐藏。该精简配置由网址参数固定，不会受某台电脑此前保存的 GeoLibre 个人设置影响。
+为避免通用 GIS 功能干扰日常维护，红塘专用页面不再显示 GeoLibre 顶部菜单、浏览器与插件侧栏、样式面板、地点搜索、底图切换和通用分析入口。左侧固定为“编辑图层”面板，每个图层只显示显隐开关、名称、要素数量，以及“定位、改形、属性、导出”四项操作；面板顶部保留撤销和重做，地图上保留 GeoEditor 的点、线、面绘制与编辑工具。属性表只在点击“属性”后打开，“导出”会下载当前图层的 GeoJSON 文件。该精简配置由网址参数固定，不会受某台电脑此前保存的 GeoLibre 个人设置影响。
 
 GeoLibre 用于专业地图检查、制图和矢量编辑，红塘平台继续用于面向村民的简明展示。两者已经共用 Supabase 中的同一套来源数据，但当前 GeoLibre 中的修改只保存在本次项目或导出文件中，不会自动覆盖正式平台。后续若进入正式编辑阶段，应增加管理员登录、草稿数据区、校验与审核发布流程，避免公开页面获得直接写入正式数据的权限。
 
@@ -170,9 +170,10 @@ GeoLibre 用于专业地图检查、制图和矢量编辑，红塘平台继续�
 - `src/app/geolibre-lab/page.tsx`：编辑器外层页面与安全边界提示。
 - `supabase/functions/geolibre-bridge/index.ts`：把 `platform_datasets` 转换为 GeoLibre 项目和 GeoJSON 图层。
 - `vendor/geolibre`：GeoLibre v2.5.0完整上游源码及红塘专用界面配置，后续功能修改以此目录为准。
+- `vendor/geolibre/apps/geolibre-desktop/src/components/panels/HongtangVectorLayerPanel.tsx`：红塘专用简化图层面板，只提供显隐、定位、改形、属性、导出与撤销/重做。
 - `public/geolibre`：由项目内源码生成的自托管网页构建及其 MIT 许可证；不手工修改。当前构建关闭PWA缓存，并把未启用的数据库、栅格与分析引擎留在按需加载路径，日常编辑不会主动下载。
 - `scripts/build-local-geolibre.mjs`：从项目内源码重新生成`public/geolibre`。
-- `scripts/verify-geolibre-lab.mjs`：验证云端桥接、8个图层、底图和实际页面渲染。
+- `scripts/verify-geolibre-lab.mjs`：验证云端桥接、8个图层、专用简化面板、点线面编辑工具、底图和实际页面渲染。
 
 ## 使用手册与同步维护规则
 
@@ -206,7 +207,7 @@ npm run test:view-transition
 npm run test:geolibre
 ```
 
-基础测试用于检查生产构建；`npm run test:supabase-data` 检查三套公开数据、204个地点和云端WebP照片是否可读。`npm run test:village-topics` 验证五个专题入口、光伏专题不存在、已有资料数量、待调查提示，以及专题状态在2D/3D间保持。`npm run test:2d-markers` 连续缩放并点击图钉，检查矢量渲染和气泡；`npm run test:water-topic` 验证水专题三种视角、上下游关系、关联跳转和详情；`npm run test:view-transition` 验证功能卡片先完成过渡、2D地图随后挂载，以及地图编辑入口位于功能卡片第三行并默认打开新窗口；`npm run test:geolibre` 验证GeoLibre只读桥接、8个图层、本地源码、精简工具栏、矢量编辑控件和实际页面渲染。完整测试需要联网；高德云端测试需要 `AMAP_WEB_KEY`，3D测试需要可用的 `CESIUM_ION_TOKEN`。
+基础测试用于检查生产构建；`npm run test:supabase-data` 检查三套公开数据、204个地点和云端WebP照片是否可读。`npm run test:village-topics` 验证五个专题入口、光伏专题不存在、已有资料数量、待调查提示，以及专题状态在2D/3D间保持。`npm run test:2d-markers` 连续缩放并点击图钉，检查矢量渲染和气泡；`npm run test:water-topic` 验证水专题三种视角、上下游关系、关联跳转和详情；`npm run test:view-transition` 验证功能卡片先完成过渡、2D地图随后挂载，以及地图编辑入口位于功能卡片第三行并默认打开新窗口；`npm run test:geolibre` 验证GeoLibre只读桥接、8个图层、本地源码、专用简化图层面板、每层四项操作、矢量编辑控件和实际页面渲染。完整测试需要联网；高德云端测试需要 `AMAP_WEB_KEY`，3D测试需要可用的 `CESIUM_ION_TOKEN`。
 
 ## 下一阶段
 

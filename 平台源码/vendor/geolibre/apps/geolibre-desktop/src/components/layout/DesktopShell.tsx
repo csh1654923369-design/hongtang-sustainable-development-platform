@@ -151,6 +151,7 @@ import { AttributeTable } from "../panels/AttributeTable";
 import { RasterAttributeTable } from "../panels/RasterAttributeTable";
 import { BrowserPanel } from "../panels/BrowserPanel";
 import { LayerPanel } from "../panels/LayerPanel";
+import { HongtangVectorLayerPanel } from "../panels/HongtangVectorLayerPanel";
 import { ViewerLayerPanel } from "../panels/ViewerLayerPanel";
 import { FloatingPanels } from "../panels/FloatingPanels";
 import { SunPanel } from "../panels/SunPanel";
@@ -540,6 +541,7 @@ export function DesktopShell({
   onToggleThemeMode,
 }: DesktopShellProps) {
   const { t } = useTranslation();
+  const hongtangVectorProfile = isHongtangVectorProfile();
   const shellRef = useRef<HTMLDivElement>(null);
   const verticalResizeGuideRef = useRef<HTMLDivElement>(null);
   // Push the translated bookmark labels into the framework-agnostic plugins
@@ -2131,6 +2133,7 @@ export function DesktopShell({
   return (
     <div
       ref={shellRef}
+      data-hongtang-vector-profile={hongtangVectorProfile ? "true" : undefined}
       className="relative flex h-full min-w-0 flex-col overflow-hidden bg-background"
       style={shellStyle}
       onDragEnter={handleDragEnter}
@@ -2166,7 +2169,7 @@ export function DesktopShell({
         {/* The Browser panel body is portaled into its dedicated content host
             (which the dock slots relocate between positions), so it shares the
             app's React context and the shell owns its dock chrome. */}
-        {activePanelId === BROWSER_PANEL_ID && !layoutOptions.panelsHidden && !layoutOptions.viewer
+        {activePanelId === BROWSER_PANEL_ID && !layoutOptions.panelsHidden && !layoutOptions.viewer && !hongtangVectorProfile
           ? createPortal(
               <BrowserPanel
                 mapControllerRef={mapControllerRef}
@@ -2198,7 +2201,7 @@ export function DesktopShell({
                 panel): a panel moved to left/right-of-layers must stay
                 reachable while a shared-rail panel such as the Browser is
                 open. */}
-            {!layoutOptions.viewer ? (
+            {!layoutOptions.viewer && !hongtangVectorProfile ? (
               <SectionErrorBoundary
                 label="Plugin panel (left of Layers)"
                 displayName={t("shell.section.pluginPanelLeftOfLayers")}
@@ -2211,7 +2214,7 @@ export function DesktopShell({
                 />
               </SectionErrorBoundary>
             ) : null}
-            {replaceLayersPanelId && !layoutOptions.viewer ? (
+            {replaceLayersPanelId && !layoutOptions.viewer && !hongtangVectorProfile ? (
               // Shared-rail mode on the Layers (left) side: the plugin panel shares
               // the Layers sidebar surface, so a single rail lists both the workbench
               // and Layers instead of the built-in panel standing on its own.
@@ -2261,7 +2264,15 @@ export function DesktopShell({
               </SectionErrorBoundary>
             ) : layoutOptions.layerPanelVisible ? (
               <SectionErrorBoundary label="Layer panel" displayName={t("shell.section.layerPanel")}>
-                {layoutOptions.viewer ? (
+                {hongtangVectorProfile ? (
+                  <HongtangVectorLayerPanel
+                    mapControllerRef={mapControllerRef}
+                    onResizeStart={startLayerPanelResize}
+                    geometryEditLayerId={geometryEditLayerId}
+                    onToggleGeometryEdit={handleToggleGeometryEdit}
+                    onCancelGeometryEdit={handleCancelGeometryEdit}
+                  />
+                ) : layoutOptions.viewer ? (
                   <ViewerLayerPanel />
                 ) : (
                   <LayerPanel
@@ -2280,7 +2291,7 @@ export function DesktopShell({
                 )}
               </SectionErrorBoundary>
             ) : null}
-            {!layoutOptions.viewer ? (
+            {!layoutOptions.viewer && !hongtangVectorProfile ? (
               <SectionErrorBoundary
                 label="Plugin panel (right of Layers)"
                 displayName={t("shell.section.pluginPanelRightOfLayers")}

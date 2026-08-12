@@ -13,6 +13,25 @@ const publicTarget = resolve(publicRoot, "geolibre");
 const stagedTarget = resolve(publicRoot, ".geolibre-local-build");
 const previousTarget = resolve(publicRoot, ".geolibre-previous-build");
 
+const RETRYABLE_RENAME_CODES = new Set(["EPERM", "EBUSY", "ENOTEMPTY"]);
+const renameWait = new Int32Array(new SharedArrayBuffer(4));
+
+function renameWithRetry(source, destination, attempts = 8) {
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    try {
+      renameSync(source, destination);
+      return;
+    } catch (error) {
+      const retryable = error && typeof error === "object" && RETRYABLE_RENAME_CODES.has(error.code);
+      if (!retryable || attempt === attempts) throw error;
+      // Windows, Next.js and sync clients may briefly retain a directory handle.
+      // A short bounded retry keeps the generated site swap atomic without
+      // requiring the user to guess which process caused a transient lock.
+      Atomics.wait(renameWait, 0, 0, 250 * attempt);
+    }
+  }
+}
+
 if (!existsSync(sourcePackage)) {
   throw new Error(`未找到项目内的 GeoLibre 源码：${sourcePackage}`);
 }
@@ -55,14 +74,14 @@ rmSync(previousTarget, { recursive: true, force: true });
 cpSync(sourceDist, stagedTarget, { recursive: true });
 
 if (existsSync(publicTarget)) {
-  renameSync(publicTarget, previousTarget);
+  renameWithRetry(publicTarget, previousTarget);
 }
 try {
-  renameSync(stagedTarget, publicTarget);
+  renameWithRetry(stagedTarget, publicTarget);
   rmSync(previousTarget, { recursive: true, force: true });
 } catch (error) {
   if (existsSync(previousTarget) && !existsSync(publicTarget)) {
-    renameSync(previousTarget, publicTarget);
+    renameWithRetry(previousTarget, publicTarget);
   }
   throw error;
 }

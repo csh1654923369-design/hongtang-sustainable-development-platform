@@ -3655,3 +3655,18 @@ html.dark .maplibregl-popup-anchor-right:has(.vector-control-popup) .maplibregl-
 .geolibre-legend-panel.maplibregl-ctrl textarea::placeholder {
   color: hsl(var(--muted-foreground)) !important;
 }
+
+
+/* Hongtang's embedded editor is intentionally a small vector workbench rather
+   than the complete GeoLibre desktop. Keep only the drawing toolbar and basic
+   navigation; layer selection lives in the dedicated left panel. */
+[data-hongtang-vector-profile="true"] .maplibre-gl-layer-control,
+[data-hongtang-vector-profile="true"] .maplibre-gl-basemap-control,
+[data-hongtang-vector-profile="true"] .maplibregl-ctrl-attrib,
+[data-hongtang-vector-profile="true"] .maplibregl-ctrl-logo {
+  display: none !important;
+}
+
+[data-hongtang-vector-profile="true"] {
+  --layer-panel-width: 264px !important;
+}
