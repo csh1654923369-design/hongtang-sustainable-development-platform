@@ -23,7 +23,7 @@ try {
     home.waitForEvent("popup"),
     home.getByRole("link", { name: "进入红塘地图数据编辑", exact: true }).click(),
   ]);
-  await editor.waitForURL(/\/map-editor$/);
+  await editor.waitForURL(/\/map-editor\/?$/);
   await editor.locator(".map-data-editor-v2").waitFor();
   const firstLayer = editor.locator('[data-layer-id="garden-sites"]');
   await firstLayer.waitFor();
