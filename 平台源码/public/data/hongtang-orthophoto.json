@@ -1,0 +1,31 @@
+{
+  "title": "红塘村无人机正射影像",
+  "displayAsset": "/data/hongtang-orthophoto-0.3m.webp",
+  "sourceAsset": "../平台素材/Production_1-tif/重采样/Production_1-tif_ortho_merge_0.3m.tif",
+  "sourceKeptOutsideRepository": true,
+  "acquisitionDate": null,
+  "coordinateReferenceSystem": "EPSG:32647",
+  "pixelSizeMeters": 0.3,
+  "width": 3357,
+  "height": 3554,
+  "utmBounds": {
+    "west": 591299.968642203,
+    "south": 2724476.82059454,
+    "east": 592307.068642203,
+    "north": 2725543.02059454
+  },
+  "approximateWgs84Bounds": {
+    "west": 99.902144,
+    "south": 24.63173,
+    "east": 99.912024,
+    "north": 24.641417
+  },
+  "rotation": {
+    "x": 0,
+    "y": 0
+  },
+  "sourceBytes": 35857870,
+  "displayBytes": 3891312,
+  "pointCalibration": "pending",
+  "publicationNotice": "现有业务点位为演示位置，尚未与无人机影像完成位置校准；正式公开前还需确认影像授权和敏感内容处理范围。"
+}

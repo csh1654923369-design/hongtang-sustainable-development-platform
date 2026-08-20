@@ -1,0 +1,871 @@
+{
+  "title": "红塘村专题空间试验数据",
+  "notice": "本数据仅用于验证各专题的图层结构、属性字段和交互方式，不代表实地调查结论。所有位置、范围、关系和数值均需后续逐项核实。",
+  "updatedAt": "2026-08-14",
+  "layers": [
+    {
+      "id": "tea-monitoring-sites",
+      "topicId": "tea",
+      "title": "茶园与监测点",
+      "shortDescription": "标记茶园、土壤和茶叶取样位置",
+      "geometryType": "point",
+      "color": "#a77832",
+      "pointFeatureType": "tea-garden",
+      "fields": [
+        {
+          "key": "siteType",
+          "label": "点位类型",
+          "editor": "select",
+          "options": [
+            "茶园",
+            "土壤取样点",
+            "茶叶取样点"
+          ]
+        },
+        {
+          "key": "manager",
+          "label": "经营农户",
+          "editor": "text"
+        },
+        {
+          "key": "organicStatus",
+          "label": "有机管理状态",
+          "editor": "select",
+          "options": [
+            "待核实",
+            "转换期",
+            "有机管理",
+            "常规管理"
+          ]
+        },
+        {
+          "key": "monitoringCycle",
+          "label": "监测周期",
+          "editor": "text"
+        },
+        {
+          "key": "lastResult",
+          "label": "最近记录",
+          "editor": "textarea"
+        }
+      ]
+    },
+    {
+      "id": "tea-garden-areas",
+      "topicId": "tea",
+      "title": "茶园范围",
+      "shortDescription": "记录面积、经营主体和土壤状况",
+      "geometryType": "polygon",
+      "color": "#a77832",
+      "fields": [
+        {
+          "key": "manager",
+          "label": "经营农户",
+          "editor": "text"
+        },
+        {
+          "key": "areaMu",
+          "label": "面积",
+          "editor": "number",
+          "unit": "亩"
+        },
+        {
+          "key": "teaVariety",
+          "label": "茶树品种",
+          "editor": "text"
+        },
+        {
+          "key": "organicStatus",
+          "label": "有机管理状态",
+          "editor": "select",
+          "options": [
+            "待核实",
+            "转换期",
+            "有机管理",
+            "常规管理"
+          ]
+        },
+        {
+          "key": "soilMonitoring",
+          "label": "土壤监测",
+          "editor": "textarea"
+        }
+      ]
+    },
+    {
+      "id": "tea-leaf-routes",
+      "topicId": "tea",
+      "title": "采青与收购联系",
+      "shortDescription": "连接茶园、农户与茶厂",
+      "geometryType": "line",
+      "color": "#c3914d",
+      "fields": [
+        {
+          "key": "routeType",
+          "label": "联系类型",
+          "editor": "select",
+          "options": [
+            "采青运输",
+            "茶叶收购",
+            "农户协作"
+          ]
+        },
+        {
+          "key": "source",
+          "label": "来源茶园",
+          "editor": "text"
+        },
+        {
+          "key": "destination",
+          "label": "接收茶厂",
+          "editor": "text"
+        },
+        {
+          "key": "participants",
+          "label": "参与农户",
+          "editor": "text"
+        },
+        {
+          "key": "seasonalVolume",
+          "label": "季节性数量",
+          "editor": "text"
+        }
+      ]
+    },
+    {
+      "id": "safety-risk-sites",
+      "topicId": "safety",
+      "title": "塌方与隐患点",
+      "shortDescription": "记录隐患、影响对象和处置复查",
+      "geometryType": "point",
+      "color": "#bd5a40",
+      "pointFeatureType": "safety-risk",
+      "fields": [
+        {
+          "key": "riskType",
+          "label": "隐患类型",
+          "editor": "select",
+          "options": [
+            "塌方",
+            "边坡",
+            "道路",
+            "排水",
+            "农房维护",
+            "其他"
+          ]
+        },
+        {
+          "key": "severity",
+          "label": "风险等级",
+          "editor": "select",
+          "options": [
+            "待研判",
+            "低",
+            "中",
+            "高"
+          ]
+        },
+        {
+          "key": "affectedObject",
+          "label": "影响对象",
+          "editor": "text"
+        },
+        {
+          "key": "discoveredOn",
+          "label": "发现日期",
+          "editor": "date"
+        },
+        {
+          "key": "treatmentStatus",
+          "label": "处置状态",
+          "editor": "select",
+          "options": [
+            "待核实",
+            "待处置",
+            "处置中",
+            "已处置",
+            "持续复查"
+          ]
+        },
+        {
+          "key": "responsibleParty",
+          "label": "联系或维护主体",
+          "editor": "text"
+        }
+      ]
+    },
+    {
+      "id": "history-sites",
+      "topicId": "history",
+      "title": "历史地点与老树",
+      "shortDescription": "连接遗存、地名、老树和口述记忆",
+      "geometryType": "point",
+      "color": "#7a568e",
+      "pointFeatureType": "village-memory",
+      "fields": [
+        {
+          "key": "heritageType",
+          "label": "地点类型",
+          "editor": "select",
+          "options": [
+            "古道遗存",
+            "老建筑",
+            "老核桃树",
+            "传统地名",
+            "口述地点"
+          ]
+        },
+        {
+          "key": "period",
+          "label": "年代或时期",
+          "editor": "text"
+        },
+        {
+          "key": "narrator",
+          "label": "讲述人",
+          "editor": "text"
+        },
+        {
+          "key": "evidenceType",
+          "label": "资料类型",
+          "editor": "select",
+          "options": [
+            "口述",
+            "老照片",
+            "档案",
+            "现场遗存",
+            "待补充"
+          ]
+        },
+        {
+          "key": "conservation",
+          "label": "保存状况",
+          "editor": "textarea"
+        }
+      ]
+    },
+    {
+      "id": "tea-horse-trail",
+      "topicId": "history",
+      "title": "茶马古道",
+      "shortDescription": "记录古道走向、节点和当代使用",
+      "geometryType": "line",
+      "color": "#8c69a0",
+      "fields": [
+        {
+          "key": "routeType",
+          "label": "线路类型",
+          "editor": "select",
+          "options": [
+            "古道主线",
+            "村内支线",
+            "待核实线索"
+          ]
+        },
+        {
+          "key": "startEnd",
+          "label": "起讫地点",
+          "editor": "text"
+        },
+        {
+          "key": "historicUse",
+          "label": "历史用途",
+          "editor": "textarea"
+        },
+        {
+          "key": "oralSource",
+          "label": "口述来源",
+          "editor": "text"
+        },
+        {
+          "key": "verification",
+          "label": "核实进度",
+          "editor": "textarea"
+        }
+      ]
+    },
+    {
+      "id": "historic-settlement-area",
+      "topicId": "history",
+      "title": "传统聚落范围",
+      "shortDescription": "观察树、水、房屋和农田的整体关系",
+      "geometryType": "polygon",
+      "color": "#7a568e",
+      "fields": [
+        {
+          "key": "settlementType",
+          "label": "范围类型",
+          "editor": "select",
+          "options": [
+            "传统聚落核心",
+            "历史环境",
+            "待核实范围"
+          ]
+        },
+        {
+          "key": "period",
+          "label": "形成年代",
+          "editor": "text"
+        },
+        {
+          "key": "keyElements",
+          "label": "关键构成",
+          "editor": "textarea"
+        },
+        {
+          "key": "livingUse",
+          "label": "当前生活使用",
+          "editor": "textarea"
+        }
+      ]
+    }
+  ],
+  "features": [
+    {
+      "id": "demo-tea-site-1",
+      "layerId": "tea-monitoring-sites",
+      "topicId": "tea",
+      "title": "北坡茶园土壤监测点",
+      "status": "待核实",
+      "location": "红塘村北坡",
+      "description": "演示每年在同一位置持续记录土壤和茶叶情况。",
+      "updatedAt": "2026-08-13",
+      "isDemo": true,
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          99.9044,
+          24.6508
+        ]
+      },
+      "properties": {
+        "siteType": "土壤取样点",
+        "manager": "待访谈",
+        "organicStatus": "待核实",
+        "monitoringCycle": "每年一次（建议）",
+        "lastResult": "尚无实测结果"
+      }
+    },
+    {
+      "id": "demo-tea-site-2",
+      "layerId": "tea-monitoring-sites",
+      "topicId": "tea",
+      "title": "东坡茶园监测点",
+      "status": "待核实",
+      "location": "红塘村东坡",
+      "description": "演示茶园经营、土壤监测和采青记录。",
+      "updatedAt": "2026-08-13",
+      "isDemo": true,
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          99.9084,
+          24.6489
+        ]
+      },
+      "properties": {
+        "siteType": "茶园",
+        "manager": "待访谈",
+        "organicStatus": "待核实",
+        "monitoringCycle": "春茶前后（建议）",
+        "lastResult": "尚无实测结果"
+      }
+    },
+    {
+      "id": "demo-tea-site-3",
+      "layerId": "tea-monitoring-sites",
+      "topicId": "tea",
+      "title": "西北坡茶叶取样点",
+      "status": "待核实",
+      "location": "红塘村西北坡",
+      "description": "演示茶叶样品与茶园、农户和茶厂的对应。",
+      "updatedAt": "2026-08-13",
+      "isDemo": true,
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          99.9019,
+          24.6522
+        ]
+      },
+      "properties": {
+        "siteType": "茶叶取样点",
+        "manager": "待访谈",
+        "organicStatus": "待核实",
+        "monitoringCycle": "采茶季（建议）",
+        "lastResult": "尚无实测结果"
+      }
+    },
+    {
+      "id": "demo-tea-area-1",
+      "layerId": "tea-garden-areas",
+      "topicId": "tea",
+      "title": "北坡茶园片区",
+      "status": "待核实",
+      "location": "红塘村北坡",
+      "description": "演示茶园范围、经营农户、面积与长期监测。",
+      "updatedAt": "2026-08-13",
+      "isDemo": true,
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            99.9026,
+            24.6494
+          ],
+          [
+            99.9057,
+            24.6492
+          ],
+          [
+            99.9061,
+            24.6523
+          ],
+          [
+            99.903,
+            24.6526
+          ]
+        ]
+      },
+      "properties": {
+        "manager": "待访谈",
+        "areaMu": 42,
+        "teaVariety": "待调查",
+        "organicStatus": "待核实",
+        "soilMonitoring": "建议设置固定年度样点"
+      }
+    },
+    {
+      "id": "demo-tea-area-2",
+      "layerId": "tea-garden-areas",
+      "topicId": "tea",
+      "title": "东坡茶园片区",
+      "status": "待核实",
+      "location": "红塘村东坡",
+      "description": "演示坡地茶园与村内茶厂之间的联系。",
+      "updatedAt": "2026-08-13",
+      "isDemo": true,
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            99.907,
+            24.6473
+          ],
+          [
+            99.91,
+            24.6472
+          ],
+          [
+            99.9104,
+            24.6502
+          ],
+          [
+            99.9075,
+            24.6505
+          ]
+        ]
+      },
+      "properties": {
+        "manager": "待访谈",
+        "areaMu": 36,
+        "teaVariety": "待调查",
+        "organicStatus": "待核实",
+        "soilMonitoring": "尚无实测数据"
+      }
+    },
+    {
+      "id": "demo-tea-route-1",
+      "layerId": "tea-leaf-routes",
+      "topicId": "tea",
+      "title": "北坡茶园至茶厂收青联系",
+      "status": "待核实",
+      "location": "北坡茶园—村北茶厂",
+      "description": "演示青茶从茶园到茶厂的流向和参与农户。",
+      "updatedAt": "2026-08-13",
+      "isDemo": true,
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            99.9044,
+            24.6508
+          ],
+          [
+            99.9048,
+            24.6521
+          ],
+          [
+            99.90454,
+            24.65325
+          ]
+        ]
+      },
+      "properties": {
+        "routeType": "茶叶收购",
+        "source": "北坡茶园片区",
+        "destination": "村北茶厂（示例）",
+        "participants": "待访谈",
+        "seasonalVolume": "待连续记录"
+      }
+    },
+    {
+      "id": "demo-tea-route-2",
+      "layerId": "tea-leaf-routes",
+      "topicId": "tea",
+      "title": "东坡茶园至核心区茶厂联系",
+      "status": "待核实",
+      "location": "东坡茶园—核心区茶厂",
+      "description": "演示采青、收购与加工之间的联系。",
+      "updatedAt": "2026-08-13",
+      "isDemo": true,
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            99.9084,
+            24.6489
+          ],
+          [
+            99.9091,
+            24.643
+          ],
+          [
+            99.90978,
+            24.63882
+          ]
+        ]
+      },
+      "properties": {
+        "routeType": "采青运输",
+        "source": "东坡茶园片区",
+        "destination": "核心区茶厂（示例）",
+        "participants": "待访谈",
+        "seasonalVolume": "待连续记录"
+      }
+    },
+    {
+      "id": "demo-safety-1",
+      "layerId": "safety-risk-sites",
+      "topicId": "safety",
+      "title": "北侧道路塌方线索",
+      "status": "待核实",
+      "location": "村北入村道路",
+      "description": "演示塌方位置、影响对象、处置和复查。",
+      "updatedAt": "2026-08-13",
+      "isDemo": true,
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          99.9056,
+          24.641
+        ]
+      },
+      "properties": {
+        "riskType": "塌方",
+        "severity": "待研判",
+        "affectedObject": "入村道路与通行",
+        "discoveredOn": "2026-08-13",
+        "treatmentStatus": "待核实",
+        "responsibleParty": "待调查"
+      }
+    },
+    {
+      "id": "demo-safety-2",
+      "layerId": "safety-risk-sites",
+      "topicId": "safety",
+      "title": "东坡边坡隐患线索",
+      "status": "待核实",
+      "location": "村东坡地",
+      "description": "演示雨季边坡变化与周边住户之间的关系。",
+      "updatedAt": "2026-08-13",
+      "isDemo": true,
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          99.911,
+          24.6386
+        ]
+      },
+      "properties": {
+        "riskType": "边坡",
+        "severity": "待研判",
+        "affectedObject": "邻近住户和道路",
+        "discoveredOn": "2026-08-13",
+        "treatmentStatus": "待核实",
+        "responsibleParty": "待调查"
+      }
+    },
+    {
+      "id": "demo-safety-3",
+      "layerId": "safety-risk-sites",
+      "topicId": "safety",
+      "title": "排水沟淤堵线索",
+      "status": "待核实",
+      "location": "村落中部",
+      "description": "演示排水不畅对道路和房前屋后的影响。",
+      "updatedAt": "2026-08-13",
+      "isDemo": true,
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          99.9063,
+          24.6371
+        ]
+      },
+      "properties": {
+        "riskType": "排水",
+        "severity": "待研判",
+        "affectedObject": "房前屋后与村道",
+        "discoveredOn": "2026-08-13",
+        "treatmentStatus": "待核实",
+        "responsibleParty": "待调查"
+      }
+    },
+    {
+      "id": "demo-safety-4",
+      "layerId": "safety-risk-sites",
+      "topicId": "safety",
+      "title": "挡墙维护点",
+      "status": "待核实",
+      "location": "村落西侧",
+      "description": "演示农房周边挡墙的巡查、维修和复查。",
+      "updatedAt": "2026-08-13",
+      "isDemo": true,
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          99.9039,
+          24.6356
+        ]
+      },
+      "properties": {
+        "riskType": "农房维护",
+        "severity": "待研判",
+        "affectedObject": "邻近农房",
+        "discoveredOn": "2026-08-13",
+        "treatmentStatus": "待核实",
+        "responsibleParty": "待调查"
+      }
+    },
+    {
+      "id": "demo-safety-5",
+      "layerId": "safety-risk-sites",
+      "topicId": "safety",
+      "title": "南侧路肩隐患线索",
+      "status": "待核实",
+      "location": "村南道路",
+      "description": "演示道路隐患的发现、处置和复查。",
+      "updatedAt": "2026-08-13",
+      "isDemo": true,
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          99.9051,
+          24.6332
+        ]
+      },
+      "properties": {
+        "riskType": "道路",
+        "severity": "待研判",
+        "affectedObject": "村民通行",
+        "discoveredOn": "2026-08-13",
+        "treatmentStatus": "待核实",
+        "responsibleParty": "待调查"
+      }
+    },
+    {
+      "id": "demo-history-1",
+      "layerId": "history-sites",
+      "topicId": "history",
+      "title": "古道石阶线索",
+      "status": "待核实",
+      "location": "村北坡地",
+      "description": "演示古道遗存与口述、老照片和现场调查的对应。",
+      "updatedAt": "2026-08-13",
+      "isDemo": true,
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          99.904,
+          24.6438
+        ]
+      },
+      "properties": {
+        "heritageType": "古道遗存",
+        "period": "待考证",
+        "narrator": "待访谈",
+        "evidenceType": "现场遗存",
+        "conservation": "现状待踏勘"
+      }
+    },
+    {
+      "id": "demo-history-2",
+      "layerId": "history-sites",
+      "topicId": "history",
+      "title": "老核桃树",
+      "status": "待核实",
+      "location": "村落中部",
+      "description": "呼应老师提出的老核桃树分布调查，并连接聚落生活记忆。",
+      "updatedAt": "2026-08-13",
+      "isDemo": true,
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          99.9072,
+          24.6389
+        ]
+      },
+      "properties": {
+        "heritageType": "老核桃树",
+        "period": "树龄待测",
+        "narrator": "待访谈",
+        "evidenceType": "待补充",
+        "conservation": "健康状况和管理人待调查"
+      }
+    },
+    {
+      "id": "demo-history-3",
+      "layerId": "history-sites",
+      "topicId": "history",
+      "title": "传统地名口述点",
+      "status": "待核实",
+      "location": "村落核心区",
+      "description": "记录地名来源、讲述人和相关生活故事。",
+      "updatedAt": "2026-08-13",
+      "isDemo": true,
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          99.9086,
+          24.6378
+        ]
+      },
+      "properties": {
+        "heritageType": "传统地名",
+        "period": "待考证",
+        "narrator": "待访谈",
+        "evidenceType": "口述",
+        "conservation": "需与多位村民交叉核对"
+      }
+    },
+    {
+      "id": "demo-history-4",
+      "layerId": "history-sites",
+      "topicId": "history",
+      "title": "老屋生活记忆点",
+      "status": "待核实",
+      "location": "村落南部",
+      "description": "连接建筑、院坝、林木、水系和家庭生活记忆。",
+      "updatedAt": "2026-08-13",
+      "isDemo": true,
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          99.9066,
+          24.6352
+        ]
+      },
+      "properties": {
+        "heritageType": "老建筑",
+        "period": "待考证",
+        "narrator": "待访谈",
+        "evidenceType": "老照片",
+        "conservation": "建筑现状与使用情况待调查"
+      }
+    },
+    {
+      "id": "demo-tea-horse-trail",
+      "layerId": "tea-horse-trail",
+      "topicId": "history",
+      "title": "茶马古道村内段",
+      "status": "待核实",
+      "location": "村北—村落核心—村南",
+      "description": "老师提出应把茶马古道历史做起来；当前线路仅用于演示。",
+      "updatedAt": "2026-08-13",
+      "isDemo": true,
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [
+          [
+            99.9037,
+            24.6445
+          ],
+          [
+            99.904,
+            24.6438
+          ],
+          [
+            99.9055,
+            24.6412
+          ],
+          [
+            99.9072,
+            24.6389
+          ],
+          [
+            99.9086,
+            24.6378
+          ],
+          [
+            99.9066,
+            24.6352
+          ],
+          [
+            99.905,
+            24.6328
+          ]
+        ]
+      },
+      "properties": {
+        "routeType": "待核实线索",
+        "startEnd": "村北坡地—村南道路",
+        "historicUse": "茶叶、物资与人员往来（待考证）",
+        "oralSource": "待访谈",
+        "verification": "需结合旧规划、现场遗存和多位村民口述核实"
+      }
+    },
+    {
+      "id": "demo-historic-settlement",
+      "layerId": "historic-settlement-area",
+      "topicId": "history",
+      "title": "传统聚落核心范围",
+      "status": "待核实",
+      "location": "红塘村核心区",
+      "description": "依据树、水、住房、茶园和农田共同构成的聚落关系设置的表达示例。",
+      "updatedAt": "2026-08-13",
+      "isDemo": true,
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            99.9046,
+            24.641
+          ],
+          [
+            99.9107,
+            24.6404
+          ],
+          [
+            99.9115,
+            24.635
+          ],
+          [
+            99.906,
+            24.6329
+          ],
+          [
+            99.9035,
+            24.636
+          ]
+        ]
+      },
+      "properties": {
+        "settlementType": "待核实范围",
+        "period": "待考证",
+        "keyElements": "老屋、院坝、林木、水沟、农田和道路",
+        "livingUse": "仍为村民生产生活空间，具体变化需持续记录"
+      }
+    }
+  ]
+}

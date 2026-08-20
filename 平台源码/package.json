@@ -1,0 +1,51 @@
+{
+  "name": "hongtang-sustainable-development-platform",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test:2d-markers": "node scripts/verify-2d-marker-interactions.mjs",
+    "test:supabase-data": "node scripts/verify-supabase-data.mjs",
+    "test:village-topics": "node scripts/verify-village-topics.mjs",
+    "test:water-topic": "node scripts/verify-water-topic.mjs",
+    "test:view-transition": "node scripts/verify-map-view-transition.mjs",
+    "test:map-editor": "node scripts/verify-map-editor.mjs",
+    "prepare:building-map": "node scripts/prepare-building-survey.mjs",
+    "prepare:map-service-assets": "node scripts/prepare-map-service-assets.mjs",
+    "prepare:real-map-data": "python scripts/prepare-real-map-data.py",
+    "prepare:orthophoto": "node scripts/prepare-orthophoto.mjs",
+    "prepare:local-terrain": "python scripts/prepare-local-terrain.py",
+    "supabase": "supabase",
+    "test:topic-spatial": "node scripts/verify-topic-spatial-data.mjs",
+    "test:map-editor-layout": "node scripts/verify-map-editor-v2.mjs",
+    "test:pages": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/verify-github-pages.mjs",
+    "build:pages": "node scripts/build-github-pages.mjs"
+  },
+  "dependencies": {
+    "@supabase/ssr": "0.12.1",
+    "@supabase/supabase-js": "2.110.3",
+    "lucide-react": "^0.468.0",
+    "next": "^16.3.0",
+    "react": "19.2.7",
+    "react-dom": "19.2.7"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.3.2",
+    "@types/node": "26.1.1",
+    "@types/react": "19.2.17",
+    "@types/react-dom": "19.2.3",
+    "eslint": "9.39.5",
+    "eslint-config-next": "^16.3.0",
+    "playwright-core": "^1.61.1",
+    "supabase": "2.109.1",
+    "tailwindcss": "4.3.2",
+    "typescript": "6.0.3"
+  },
+  "overrides": {
+    "postcss": "8.5.26"
+  }
+}

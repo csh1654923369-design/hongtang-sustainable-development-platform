@@ -1,0 +1,17 @@
+.git
+.github
+.env*
+.vercel
+node_modules
+.next
+.qa
+.deploy-source-repo
+.deploy-static
+public/local-photos
+vendor
+docs
+.agents
+.codex
+supabase/.branches
+supabase/.temp
+*.log

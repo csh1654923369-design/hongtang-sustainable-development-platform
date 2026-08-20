@@ -1,0 +1,1 @@
+window.__HONGTANG_PAGES_CONFIG__ = window.__HONGTANG_PAGES_CONFIG__ || {};
