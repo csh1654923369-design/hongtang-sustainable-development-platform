@@ -206,6 +206,7 @@ export function HomeExperience() {
             href="/map-editor"
             target="_blank"
             rel="noopener noreferrer"
+            prefetch={false}
             className="home-map-editor-entry"
             aria-label="进入红塘地图数据编辑"
             title="在新窗口打开红塘地图数据编辑"
