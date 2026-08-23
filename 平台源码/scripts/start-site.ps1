@@ -33,6 +33,31 @@ if (Test-WebsiteReady) {
   exit 0
 }
 
+# 版本快照不复制本机密钥；若当前目录没有配置，则只在进程内复用项目根目录的本机配置。
+$localEnvFile = Join-Path $projectRoot ".env.local"
+if (-not (Test-Path -LiteralPath $localEnvFile)) {
+  $workspaceRoot = Split-Path -Parent (Split-Path -Parent $projectRoot)
+  $sharedEnvFile = Join-Path $workspaceRoot "平台源码\.env.local"
+  if (Test-Path -LiteralPath $sharedEnvFile) {
+    Get-Content -LiteralPath $sharedEnvFile -Encoding UTF8 | ForEach-Object {
+      $line = $_.Trim()
+      if ($line -and -not $line.StartsWith("#")) {
+        $separator = $line.IndexOf("=")
+        if ($separator -gt 0) {
+          $name = $line.Substring(0, $separator).Trim()
+          $value = $line.Substring($separator + 1).Trim()
+          if (($value.StartsWith('"') -and $value.EndsWith('"')) -or ($value.StartsWith("'") -and $value.EndsWith("'"))) {
+            $value = $value.Substring(1, $value.Length - 2)
+          }
+          if ($name -match "^[A-Za-z_][A-Za-z0-9_]*$") {
+            [Environment]::SetEnvironmentVariable($name, $value, "Process")
+          }
+        }
+      }
+    }
+  }
+}
+
 if (-not (Get-Command npm.cmd -ErrorAction SilentlyContinue)) {
   Write-Host "没有找到 npm。请先安装 Node.js，或联系项目维护人员。" -ForegroundColor Red
   exit 1
