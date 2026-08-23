@@ -45,6 +45,12 @@ jobs:
       - name: Verify Pages integration
         run: npm run test:pages
 
+      - name: Verify packaged photos
+        run: npm run test:photo-assets
+
+      - name: Verify topic spatial data
+        run: npm run test:topic-spatial
+
       - name: Check types
         run: npm run typecheck
 

@@ -24,7 +24,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
           cache-dependency-path: 平台源码/package-lock.json
 
@@ -33,6 +33,12 @@ jobs:
 
       - name: Check GitHub Pages adapter
         run: npm run test:pages
+
+      - name: Verify packaged photos
+        run: npm run test:photo-assets
+
+      - name: Verify topic spatial data
+        run: npm run test:topic-spatial
 
       - name: Lint
         run: npm run lint

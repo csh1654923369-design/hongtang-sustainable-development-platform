@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties } from "react";
 import { Image as ImageIcon, Layers3, ListFilter, Map as MapIcon, Satellite } from "lucide-react";
 import { MapFeatureType, SpatialFeature } from "@/types";
@@ -100,6 +100,8 @@ export function MapExplorer({
   const [topicRecords, setTopicRecords] = useState<FieldworkTopicRecord[]>([]);
   const [datasetsReady, setDatasetsReady] = useState(false);
   const [selectionAnchor, setSelectionAnchor] = useState<MapScreenAnchor>();
+  const detailDialogRef = useRef<HTMLDivElement>(null);
+  const lastSelectedMarkerId = useRef<string | undefined>(undefined);
 
 
   useEffect(() => {
@@ -195,13 +197,14 @@ export function MapExplorer({
   const visibleObjectCount = visible.length + visibleTopicSpatialVectorCount + (showWaterSystem
     ? (visibleWaterSystem?.lines.length ?? 0) + (visibleWaterSystem?.zones.length ?? 0)
     : 0);
-  const resetFilters = () => updateFilters({ types: [...availableTypes] });
-  const changeFilters = (next: MapFilters) => {
+  const resetFilters = useCallback(() => updateFilters({ types: [...availableTypes] }), [availableTypes, updateFilters]);
+  const changeFilters = useCallback((next: MapFilters) => {
     updateFilters(next);
     if (!next.types.includes(MapFeatureType.WaterFacility)) setWaterSelection(undefined);
-    if (selected && !next.types.includes(selected.featureType)) setSelected(undefined);
-  };
-  const selectFeature = (feature: SpatialFeature) => {
+    setSelected((current) => current && !next.types.includes(current.featureType) ? undefined : current);
+  }, [updateFilters]);
+  const selectFeature = useCallback((feature: SpatialFeature) => {
+    lastSelectedMarkerId.current = feature.id;
     const topicSelection = findTopicSpatialSelection(topicSpatial, feature.id);
     if (topicSelection) {
       setTopicSpatialSelection(topicSelection);
@@ -224,39 +227,48 @@ export function MapExplorer({
     setWaterSelection(undefined);
     setTopicSpatialSelection(undefined);
     setFiltersOpen(false);
-  };
-  const selectSpatial = (selection: WaterSpatialSelection) => {
+  }, [topicSpatial, waterSystem]);
+  const selectSpatial = useCallback((selection: WaterSpatialSelection) => {
+    if (selection.type === "node") lastSelectedMarkerId.current = selection.item.id;
     setWaterSelection(selection);
     setTopicSpatialSelection(undefined);
     setSelected(undefined);
     setFiltersOpen(false);
-  };
-  const selectTopicSpatial = (selection: TopicSpatialSelection) => {
+  }, []);
+  const selectTopicSpatial = useCallback((selection: TopicSpatialSelection) => {
+    lastSelectedMarkerId.current = selection.item.id;
     setTopicSpatialSelection(selection);
     setWaterSelection(undefined);
     setSelected(undefined);
     setFiltersOpen(false);
-  };
-  const clearSelection = () => {
+  }, []);
+  const clearSelection = useCallback(() => {
+    const markerId = lastSelectedMarkerId.current;
     setSelected(undefined);
     setWaterSelection(undefined);
     setTopicSpatialSelection(undefined);
     setSelectionAnchor(undefined);
-  };
+    window.requestAnimationFrame(() => {
+      if (!markerId) return;
+      const marker = Array.from(document.querySelectorAll<HTMLButtonElement>("[data-feature-id]"))
+        .find((item) => item.dataset.featureId === markerId);
+      marker?.focus({ preventScroll: true });
+    });
+  }, []);
   const hasSelection = Boolean(selected || waterSelection || topicSpatialSelection);
   const relatedWaterIds = useMemo(
     () => waterSelection && waterSystem ? waterSelectionRelatedIds(waterSelection, waterSystem) : [],
     [waterSelection, waterSystem],
   );
-  const changeWaterTopicMode = (next: WaterTopicMode) => {
+  const changeWaterTopicMode = useCallback((next: WaterTopicMode) => {
     clearSelection();
     setFiltersOpen(false);
     onWaterTopicModeChange(next);
-  };
-  const selectRelatedWaterItem = (id: string) => {
+  }, [clearSelection, onWaterTopicModeChange]);
+  const selectRelatedWaterItem = useCallback((id: string) => {
     const next = findWaterSelection(waterSystem, id);
     if (next) selectSpatial(next);
-  };
+  }, [selectSpatial, waterSystem]);
   const bubbleLayout = useMemo(
     () => hasSelection ? computeMapBubbleLayout(selectionAnchor) : undefined,
     [hasSelection, selectionAnchor],
@@ -268,6 +280,24 @@ export function MapExplorer({
     height: bubbleLayout.height,
     "--bubble-arrow-y": `${bubbleLayout.arrowY}px`,
   } as CSSProperties & Record<"--bubble-arrow-y", string>) : undefined;
+  const detailTitle = waterSelection?.item.title ?? topicSpatialSelection?.item.title ?? selected?.title ?? "地图要素详情";
+
+  useEffect(() => {
+    if (!hasSelection) return;
+    const focusTimer = window.setTimeout(() => {
+      detailDialogRef.current?.focus({ preventScroll: true });
+    }, 320);
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      clearSelection();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.clearTimeout(focusTimer);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [clearSelection, hasSelection]);
 
   return (
     <div className={`map-explorer${activeTopic ? " village-topic-active" : ""}${waterTopicActive ? " water-topic-active" : ""}${hasSelection ? " detail-open" : ""}`} data-shared-spatial-data="points-lines-polygons" data-active-village-topic={activeTopic ?? "off"} data-water-topic-mode={waterTopicMode}>
@@ -314,8 +344,9 @@ export function MapExplorer({
           onSelectSpatial={selectSpatial}
           onSelectionAnchorChange={setSelectionAnchor}
           onBackgroundClick={clearSelection}
+          viewResetKey={`${activeTopic ?? "all"}:${waterTopicMode}`}
         />
-        {datasetsReady && !visibleObjectCount ? (
+        {(datasetsReady || Boolean(temporaryMapData)) && !visibleObjectCount ? (
           <div className="map-empty-overlay">
             <strong>{activeTopic ? "该专题暂无已核实空间资料" : "当前没有显示要素"}</strong>
             <span>{activeTopic ? villageTopicById[activeTopic].emptyMessage : "请在“专题”中重新勾选。"}</span>
@@ -323,10 +354,15 @@ export function MapExplorer({
         ) : null}
         {hasSelection && bubbleLayout ? (
           <div
+            ref={detailDialogRef}
             className="map-selection-bubble"
             data-bubble-side={bubbleLayout.side}
             data-point-anchor="true"
             style={detailStyle}
+            role="dialog"
+            aria-modal="false"
+            aria-label={`${detailTitle}详情`}
+            tabIndex={-1}
           >
             {waterSelection && waterSystem ? (
               <WaterSpatialDetail selection={waterSelection} data={waterSystem} onClose={clearSelection} onSelectRelated={selectRelatedWaterItem} />

@@ -5,6 +5,7 @@ const githubPagesBasePath = "/hongtang-sustainable-development-platform";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  outputFileTracingRoot: process.cwd(),
   devIndicators: false,
   allowedDevOrigins: ["localhost", "127.0.0.1"],
   ...(isGithubPages

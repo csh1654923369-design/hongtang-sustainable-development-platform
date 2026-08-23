@@ -82,6 +82,19 @@ for (const combination of combinations) {
     await page.waitForTimeout(650);
     assert.equal(await page.locator(".map-selection-bubble").isVisible(), true);
     assert.equal(await markerLayer.locator(`.map-marker.active[data-feature-id='${target.id}']`).count(), 1);
+    const detailDialog = page.locator(".map-selection-bubble");
+    assert.equal(await detailDialog.getAttribute("role"), "dialog");
+    assert.match(await detailDialog.getAttribute("aria-label") ?? "", /详情/);
+    assert.equal(await detailDialog.evaluate((element) => document.activeElement === element), true, "detail dialog should receive focus after camera motion");
+    const activeMarker = markerLayer.locator(`.map-marker.active[data-feature-id='${target.id}']`);
+    const markerBeforeStabilityWait = await activeMarker.boundingBox();
+    await page.waitForTimeout(500);
+    const markerAfterStabilityWait = await activeMarker.boundingBox();
+    assert(markerBeforeStabilityWait && markerAfterStabilityWait);
+    assert(Math.hypot(markerBeforeStabilityWait.x - markerAfterStabilityWait.x, markerBeforeStabilityWait.y - markerAfterStabilityWait.y) < 3, "selected marker should not rebound after focusing");
+    await page.keyboard.press("Escape");
+    await detailDialog.waitFor({ state: "hidden" });
+    assert.equal(await page.evaluate((id) => document.activeElement?.closest("[data-feature-id]")?.getAttribute("data-feature-id") === id, target.id), true, "focus should return to the source marker");
     successfulClicks += 1;
   }
 }

@@ -19,7 +19,7 @@ try {
   await experience.waitFor();
   const mapEditorEntry = page.getByRole("link", { name: "进入红塘地图数据编辑", exact: true });
   await mapEditorEntry.waitFor();
-  assert.equal(await mapEditorEntry.getAttribute("href"), "/map-editor");
+  assert.match(await mapEditorEntry.getAttribute("href") ?? "", /\/map-editor\/?$/);
   assert.equal(await mapEditorEntry.getAttribute("target"), "_blank");
   assert.match(await mapEditorEntry.getAttribute("rel"), /noopener/);
   assert.match(await mapEditorEntry.textContent(), /地图编辑/);
@@ -32,8 +32,8 @@ try {
     page.waitForEvent("popup"),
     mapEditorEntry.click(),
   ]);
-  await mapEditorWindow.waitForURL(/\/map-editor(?:\?.*)?$/, { waitUntil: "domcontentloaded" });
-  assert.match(mapEditorWindow.url(), /\/map-editor$/);
+  await mapEditorWindow.waitForURL(/\/map-editor\/?(?:\?.*)?$/, { waitUntil: "domcontentloaded" });
+  assert.match(mapEditorWindow.url(), /\/map-editor\/?$/);
   await mapEditorWindow.close();
   await page.screenshot({ path: resolve(outputDir, "home-map-editor-entry.png"), fullPage: false });
   await page.setViewportSize({ width: 375, height: 812 });

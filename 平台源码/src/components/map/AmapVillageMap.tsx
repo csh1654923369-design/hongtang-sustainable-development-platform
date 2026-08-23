@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
-import { MapMarker, type MapMarkerPosition } from "@/components/map/MapMarker";
+import { isSupportingMarkerType, MapMarker, type MapMarkerPosition } from "@/components/map/MapMarker";
 import { geographicBasemaps, type VillageBasemap, VillageMap } from "@/components/map/VillageMap";
 import {
   loadAmap,
@@ -53,6 +53,51 @@ function isAmapAuthorizationError(event: ErrorEvent) {
   return /INVALID_USER_KEY|USERKEY|SECURITY_JS_CODE|jscode|AMap.*key/i.test(message);
 }
 
+function declutterMarkerIds(
+  features: SpatialFeature[],
+  positions: Record<string, MapMarkerPosition>,
+  width: number,
+  height: number,
+  zoom: number,
+  selectedId: string | undefined,
+  relatedIds: Set<string>,
+) {
+  const compression = Math.max(0, Math.min(1, (18.2 - zoom) / 1.5));
+  const narrow = width <= 680;
+  const spacingScale = 0.74 + 0.26 * compression;
+  const pinSpacing = (narrow ? 54 : 46) * spacingScale;
+  const dotSpacing = narrow ? 44 : 38;
+  const score = (feature: SpatialFeature) => {
+    if (feature.id === selectedId) return 4;
+    if (relatedIds.has(feature.id)) return 3;
+    if (feature.id.startsWith("water-node-")) return 2.5;
+    return isSupportingMarkerType(feature.featureType) ? 1 : 2;
+  };
+  const candidates = features
+    .filter((feature) => {
+      const position = positions[feature.id];
+      return position
+        && position.x >= -60
+        && position.y >= -60
+        && position.x <= width + 60
+        && position.y <= height + 60;
+    })
+    .sort((left, right) => score(right) - score(left) || left.id.localeCompare(right.id));
+  const accepted: Array<{ id: string; x: number; y: number; spacing: number }> = [];
+
+  candidates.forEach((feature) => {
+    const position = positions[feature.id];
+    const spacing = isSupportingMarkerType(feature.featureType) ? dotSpacing : pinSpacing;
+    const forced = feature.id === selectedId || relatedIds.has(feature.id) || feature.id.startsWith("water-node-");
+    const clear = forced || accepted.every((item) =>
+      Math.hypot(position.x - item.x, position.y - item.y) >= Math.max(spacing, item.spacing),
+    );
+    if (clear) accepted.push({ id: feature.id, x: position.x, y: position.y, spacing });
+  });
+
+  return new Set(accepted.map((item) => item.id));
+}
+
 export function AmapVillageMap({
   features,
   selectedId,
@@ -68,6 +113,7 @@ export function AmapVillageMap({
   onSelectSpatial,
   onSelectionAnchorChange,
   onBackgroundClick,
+  viewResetKey,
 }: {
   features: SpatialFeature[];
   selectedId?: string;
@@ -83,12 +129,16 @@ export function AmapVillageMap({
   onSelectSpatial?: (selection: WaterSpatialSelection) => void;
   onSelectionAnchorChange?: (anchor?: MapScreenAnchor) => void;
   onBackgroundClick?: () => void;
+  viewResetKey?: string;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const suppressBackgroundUntil = useRef(0);
+  const previousViewResetKeyRef = useRef<string | undefined>(undefined);
+  const projectMarkersAndSelectionRef = useRef<() => void>(() => undefined);
   const [runtime, setRuntime] = useState<Runtime>();
   const [status, setStatus] = useState<"loading" | "ready" | "fallback">("loading");
   const [markerPositions, setMarkerPositions] = useState<Record<string, MapMarkerPosition>>({});
+  const [visibleMarkerIds, setVisibleMarkerIds] = useState<Set<string>>(() => new Set());
 
   const suppressBackgroundClick = useCallback(() => {
     // AMap can emit its map-level click after a DOM marker/overlay click has
@@ -100,6 +150,13 @@ export function AmapVillageMap({
   const fallbackBasemap: VillageBasemap = overlayMode === "handdrawn" ? "handdrawn" : "aerial";
   const relatedWaterIdSet = useMemo(() => new Set(relatedWaterIds), [relatedWaterIds]);
   const hasWaterRelation = Boolean(selectedSpatialId && relatedWaterIds.length);
+  const selectedTopicPointId = useMemo(() => {
+    if (!selectedTopicSpatialId || !topicSpatial) return undefined;
+    const selection = findTopicSpatialSelection(topicSpatial, selectedTopicSpatialId);
+    return selection?.item.geometry.type === "Point" ? selection.item.id : undefined;
+  }, [selectedTopicSpatialId, topicSpatial]);
+  const effectiveSelectedPointId = selectedId ?? selectedTopicPointId;
+
 
   const selectedCoordinate = useMemo(() => {
     if (selectedId) {
@@ -123,6 +180,7 @@ export function AmapVillageMap({
     let active = true;
     let map: AmapMapInstance | undefined;
     let readyTimeout: number | undefined;
+    let readyMarked = false;
 
     const handleAuthorizationError = (event: ErrorEvent) => {
       if (isAmapAuthorizationError(event)) setStatus("fallback");
@@ -144,8 +202,10 @@ export function AmapVillageMap({
           showLabel: true,
         });
         const markReady = () => {
-          if (!active) return;
+          if (!active || readyMarked) return;
+          readyMarked = true;
           if (readyTimeout !== undefined) window.clearTimeout(readyTimeout);
+          map?.off("complete", markReady);
           setRuntime({ AMap, map: map as AmapMapInstance });
           setStatus("ready");
         };
@@ -328,6 +388,17 @@ export function AmapVillageMap({
       return positions;
     }, {});
     setMarkerPositions(nextPositions);
+    setVisibleMarkerIds(
+      declutterMarkerIds(
+        features,
+        nextPositions,
+        rect.width,
+        rect.height,
+        map.getZoom(),
+        effectiveSelectedPointId,
+        relatedWaterIdSet,
+      ),
+    );
 
     if (!selectedCoordinate) {
       onSelectionAnchorChange?.(undefined);
@@ -343,7 +414,15 @@ export function AmapVillageMap({
       height: rect.height,
       visible: x >= 0 && x <= rect.width && y >= 0 && y <= rect.height,
     });
-  }, [features, onSelectionAnchorChange, runtime, selectedCoordinate]);
+  }, [effectiveSelectedPointId, features, onSelectionAnchorChange, relatedWaterIdSet, runtime, selectedCoordinate]);
+  useEffect(() => {
+    projectMarkersAndSelectionRef.current = projectMarkersAndSelection;
+    const projectionFrame = window.requestAnimationFrame(() => {
+      projectMarkersAndSelectionRef.current();
+    });
+    return () => window.cancelAnimationFrame(projectionFrame);
+  }, [projectMarkersAndSelection]);
+
 
   useEffect(() => {
     if (!runtime) return;
@@ -353,7 +432,7 @@ export function AmapVillageMap({
       if (animationFrame !== undefined) return;
       animationFrame = window.requestAnimationFrame(() => {
         animationFrame = undefined;
-        projectMarkersAndSelection();
+        projectMarkersAndSelectionRef.current();
       });
     };
     scheduleProjection();
@@ -373,7 +452,7 @@ export function AmapVillageMap({
       resizeObserver.disconnect();
       if (animationFrame !== undefined) window.cancelAnimationFrame(animationFrame);
     };
-  }, [projectMarkersAndSelection, runtime]);
+  }, [runtime]);
 
   useEffect(() => {
     if (!runtime) return;
@@ -389,9 +468,45 @@ export function AmapVillageMap({
     if (!runtime || !selectedCoordinate) return;
     const minimumZoom = overlayMode === "handdrawn" ? 16.4 : 17.3;
     runtime.map.setZoomAndCenter(Math.max(runtime.map.getZoom(), minimumZoom), selectedCoordinate, false, 260);
-    const updateAnchor = window.setTimeout(projectMarkersAndSelection, 300);
+    const updateAnchor = window.setTimeout(() => projectMarkersAndSelectionRef.current(), 300);
     return () => window.clearTimeout(updateAnchor);
-  }, [overlayMode, projectMarkersAndSelection, runtime, selectedCoordinate]);
+  }, [overlayMode, runtime, selectedCoordinate]);
+
+  useEffect(() => {
+    if (!runtime || !viewResetKey || previousViewResetKeyRef.current === viewResetKey) return;
+    previousViewResetKeyRef.current = viewResetKey;
+    const resetCoordinates: AmapCoordinate[] = features.map((feature) => [feature.longitude, feature.latitude]);
+    waterSystem?.lines.forEach((line) => resetCoordinates.push(...line.path));
+    waterSystem?.zones.forEach((zone) => resetCoordinates.push(...zone.polygon));
+    topicSpatial?.features.forEach((item) => {
+      if (item.geometry.type === "Point") resetCoordinates.push(item.geometry.coordinates);
+      else resetCoordinates.push(...item.geometry.coordinates);
+    });
+
+    if (viewResetKey === "all:off" || !resetCoordinates.length) {
+      runtime.map.setZoomAndCenter(16.7, wgs84ToGcj02(...HONGTANG_CENTER_WGS84), false, 260);
+    } else {
+      const longitudes = resetCoordinates.map(([longitude]) => longitude);
+      const latitudes = resetCoordinates.map(([, latitude]) => latitude);
+      const center: AmapCoordinate = [
+        (Math.min(...longitudes) + Math.max(...longitudes)) / 2,
+        (Math.min(...latitudes) + Math.max(...latitudes)) / 2,
+      ];
+      const rect = containerRef.current?.getBoundingClientRect();
+      const mapWidth = Math.max(180, (rect?.width ?? window.innerWidth) * ((rect?.width ?? window.innerWidth) <= 680 ? 0.62 : 0.72));
+      const mapHeight = Math.max(160, (rect?.height ?? window.innerHeight) * ((rect?.height ?? window.innerHeight) <= 480 ? 0.44 : 0.58));
+      const cosine = Math.max(0.2, Math.cos(center[1] * Math.PI / 180));
+      const metersWide = (Math.max(...longitudes) - Math.min(...longitudes)) * 111320 * cosine;
+      const metersHigh = (Math.max(...latitudes) - Math.min(...latitudes)) * 110540;
+      const requiredResolution = Math.max(metersWide / mapWidth, metersHigh / mapHeight, 0.35);
+      const fittedZoom = resetCoordinates.length === 1
+        ? 17.1
+        : Math.max(14.8, Math.min(17.2, Math.log2((156543.03 * cosine) / requiredResolution)));
+      runtime.map.setZoomAndCenter(fittedZoom, wgs84ToGcj02(...center), false, 260);
+    }
+    const updateMarkers = window.setTimeout(() => projectMarkersAndSelectionRef.current(), 300);
+    return () => window.clearTimeout(updateMarkers);
+  }, [features, runtime, topicSpatial, viewResetKey, waterSystem]);
 
   const activateFeature = (feature: SpatialFeature, event: ReactMouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
@@ -410,48 +525,102 @@ export function AmapVillageMap({
       // Browsers may reject fullscreen when it is disabled by device policy.
     }
   };
+  const keyboardMarkerId =
+    effectiveSelectedPointId && visibleMarkerIds.has(effectiveSelectedPointId)
+      ? effectiveSelectedPointId
+      : features.find((feature) => visibleMarkerIds.has(feature.id))?.id;
 
   return (
     <div className={`amap-village-map amap-status-${status}`} data-map-provider={status === "ready" ? "amap" : "local-fallback"} data-overlay-mode={overlayMode} data-base-layer-mode={baseLayerMode}>
-      <div className="amap-local-fallback" aria-hidden={status === "ready"}>
-        <VillageMap
-          features={features}
-          selectedId={selectedId}
-          onSelect={onSelect}
-          basemap={fallbackBasemap}
-          waterSystem={waterSystem}
-          topicSpatial={topicSpatial}
-          selectedTopicSpatialId={selectedTopicSpatialId}
-          onSelectTopicSpatial={onSelectTopicSpatial}
-          selectedSpatialId={selectedSpatialId}
-          relatedWaterIds={relatedWaterIds}
-          onSelectSpatial={onSelectSpatial}
-          onSelectionAnchorChange={status === "ready" ? undefined : onSelectionAnchorChange}
-          onBackgroundClick={onBackgroundClick}
-        />
-      </div>
+      {status !== "ready" ? (
+        <div className="amap-local-fallback">
+          <VillageMap
+            features={features}
+            selectedId={selectedId}
+            onSelect={onSelect}
+            basemap={fallbackBasemap}
+            waterSystem={waterSystem}
+            topicSpatial={topicSpatial}
+            selectedTopicSpatialId={selectedTopicSpatialId}
+            onSelectTopicSpatial={onSelectTopicSpatial}
+            selectedSpatialId={selectedSpatialId}
+            relatedWaterIds={relatedWaterIds}
+            onSelectSpatial={onSelectSpatial}
+            onSelectionAnchorChange={onSelectionAnchorChange}
+            onBackgroundClick={onBackgroundClick}
+          />
+        </div>
+      ) : null}
       <div className="amap-cloud-shell">
         <div ref={containerRef} className="amap-cloud-canvas" aria-label="高德云端底图与红塘村专题叠加地图" />
       </div>
       {status === "ready" ? (
         <>
-          <div className="amap-react-marker-layer" aria-label="红塘村地点要素">
+          <div className="amap-react-marker-layer" aria-label="红塘村地点要素" data-visible-marker-count={visibleMarkerIds.size}>
             {features.map((feature) => {
               const position = markerPositions[feature.id];
-              if (!position) return null;
+              if (!position || !visibleMarkerIds.has(feature.id)) return null;
               return (
                 <MapMarker
                   key={feature.id}
                   feature={feature}
-                  active={feature.id === selectedId}
+                  active={feature.id === effectiveSelectedPointId}
                   related={relatedWaterIdSet.has(feature.id)}
                   muted={hasWaterRelation && feature.featureType === MapFeatureType.WaterFacility && !relatedWaterIdSet.has(feature.id)}
                   onClick={(event) => activateFeature(feature, event)}
                   position={position}
                   mapScale={1}
+                  tabIndex={feature.id === keyboardMarkerId ? 0 : -1}
                 />
               );
             })}
+          </div>
+          <div className="amap-spatial-accessibility" aria-label="专题线面要素">
+            {topicSpatial?.features.map((item) => {
+              if (item.geometry.type === "Point") return null;
+              const selection = findTopicSpatialSelection(topicSpatial, item.id);
+              if (!selection) return null;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  data-topic-spatial-id={item.id}
+                  className={selectedTopicSpatialId === item.id ? "active" : ""}
+                  onClick={() => {
+                    suppressBackgroundClick();
+                    onSelectTopicSpatial?.(selection);
+                  }}
+                >
+                  {item.title}
+                </button>
+              );
+            })}
+            {waterSystem?.zones.map((zone) => (
+              <button
+                key={zone.id}
+                type="button"
+                className={`home-water-zone${selectedSpatialId === zone.id ? " active" : ""}${relatedWaterIdSet.has(zone.id) ? " related" : ""}`}
+                onClick={() => {
+                  suppressBackgroundClick();
+                  onSelectSpatial?.({ type: "zone", item: zone });
+                }}
+              >
+                {zone.title}
+              </button>
+            ))}
+            {waterSystem?.lines.map((line) => (
+              <button
+                key={line.id}
+                type="button"
+                className={`home-water-line${selectedSpatialId === line.id ? " active" : ""}${relatedWaterIdSet.has(line.id) ? " related" : ""}`}
+                onClick={() => {
+                  suppressBackgroundClick();
+                  onSelectSpatial?.({ type: "line", item: line });
+                }}
+              >
+                {line.title}
+              </button>
+            ))}
           </div>
           <div className="map-scene-tools" aria-label="二维地图工具">
             <button type="button" className="map-scene-tool" data-tooltip="回到中心" aria-label="回到中心" onClick={resetView}>

@@ -1,6 +1,6 @@
 {
   "name": "hongtang-sustainable-development-platform",
-  "version": "0.1.0",
+  "version": "1.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",
@@ -23,12 +23,11 @@
     "test:topic-spatial": "node scripts/verify-topic-spatial-data.mjs",
     "test:map-editor-layout": "node scripts/verify-map-editor-v2.mjs",
     "test:mobile-home": "node scripts/verify-mobile-home.mjs",
+    "test:photo-assets": "node scripts/verify-photo-assets.mjs",
     "test:pages": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/verify-github-pages.mjs",
     "build:pages": "node scripts/build-github-pages.mjs"
   },
   "dependencies": {
-    "@supabase/ssr": "0.12.1",
-    "@supabase/supabase-js": "2.110.3",
     "lucide-react": "^0.468.0",
     "next": "^16.3.0",
     "react": "19.2.7",

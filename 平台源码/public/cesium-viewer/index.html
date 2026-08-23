@@ -116,15 +116,17 @@
     .map-pin.is-active .map-pin-label { display: block; }
     .map-pin:focus-visible svg { filter: drop-shadow(0 0 4px rgba(255, 255, 255, .95)); }
     .map-pin.map-dot {
-      width: 10px;
-      height: 10px;
+      width: 44px;
+      height: 44px;
+      display: grid;
+      place-items: center;
       transform: translate3d(-50%, -50%, 0) scale(var(--point-scale));
       transform-origin: 50% 50%;
     }
     .map-dot-core {
       display: block;
-      width: 100%;
-      height: 100%;
+      width: 10px;
+      height: 10px;
       border: 1.5px solid rgba(255, 255, 255, .96);
       border-radius: 50%;
       background: currentColor;
@@ -292,6 +294,7 @@
       backdrop-filter: blur(10px);
     }
     .viewer-status.ready { display: none; }
+    .viewer-status:not(.error) { display: none; }
     .viewer-status.error { color: #ffd7cd; border-color: rgba(255, 138, 107, .5); }
     @media (max-width: 680px) {
       .point-filter-toggle {
@@ -329,6 +332,21 @@
       .scene-tools { right: 10px; bottom: 32px; }
       body.detail-open .scene-tools { right: 10px; }
       .viewer-status { left: 10px; bottom: 32px; max-width: calc(100vw - 74px); }
+    }
+    @media (max-height: 480px) and (orientation: landscape) {
+      .scene-tools,
+      body.detail-open .scene-tools {
+        right: max(8px, env(safe-area-inset-right));
+        bottom: max(8px, env(safe-area-inset-bottom));
+        gap: 6px;
+      }
+      .settings-panel {
+        top: 8px;
+        right: 62px;
+        bottom: 8px;
+        max-height: calc(100dvh - 16px);
+        overflow-y: auto;
+      }
     }
   </style>
   <style id="home-overlay-clearance">
@@ -1474,7 +1492,7 @@
           const distance = entry.group === "research"
             ? Math.hypot(dx, dy)
             : Math.hypot(dx, dy * .78);
-          const hitRadius = entry.group === "research" ? Math.max(10, 8 * scale) : 29 * scale;
+          const hitRadius = entry.group === "research" ? Math.max(22, 20 * scale) : Math.max(22, 29 * scale);
           if (distance <= hitRadius && distance < nearestDistance) {
             nearestDistance = distance;
             nearestId = id;
@@ -1912,8 +1930,10 @@
         const controller = viewer.scene.screenSpaceCameraController;
         controller.enableRotate = false;
         controller.enableTranslate = false;
-        controller.enableZoom = false;
-        controller.enableTilt = false;
+        controller.enableZoom = true;
+        controller.zoomEventTypes = [Cesium.CameraEventType.PINCH];
+        controller.enableTilt = true;
+        controller.tiltEventTypes = [Cesium.CameraEventType.PINCH];
         controller.enableLook = false;
         controller.inertiaSpin = 0;
         controller.inertiaTranslate = 0;

@@ -53,6 +53,10 @@ const supportingPointTypes = new Set<MapFeatureType>([
   MapFeatureType.ResearchPhoto,
 ]);
 
+export function isSupportingMarkerType(type: MapFeatureType) {
+  return supportingPointTypes.has(type);
+}
+
 function getPublicServiceIconKey(title: string): PublicServiceIconKey {
   if (/厕所|公厕|卫生间/.test(title)) return "toilet";
   if (/停车/.test(title)) return "parking";
@@ -64,7 +68,7 @@ function getPublicServiceIconKey(title: string): PublicServiceIconKey {
   if (/居|住宅|民宿/.test(title)) return "house";
   return "building";
 }
-export function MapMarker({ feature, active, related = false, muted = false, onClick, position, mapScale = 1 }: { feature: SpatialFeature; active: boolean; related?: boolean; muted?: boolean; onClick: (event: MouseEvent<HTMLButtonElement>) => void; position?: MapMarkerPosition; mapScale?: number }) {
+export function MapMarker({ feature, active, related = false, muted = false, onClick, position, mapScale = 1, tabIndex }: { feature: SpatialFeature; active: boolean; related?: boolean; muted?: boolean; onClick: (event: MouseEvent<HTMLButtonElement>) => void; position?: MapMarkerPosition; mapScale?: number; tabIndex?: number }) {
   const Icon = feature.featureType === MapFeatureType.PublicService
     ? publicServiceIcons[getPublicServiceIconKey(feature.title)]
     : icons[feature.featureType];
@@ -88,6 +92,7 @@ export function MapMarker({ feature, active, related = false, muted = false, onC
       data-feature-id={feature.id}
       data-feature-type={feature.featureType}
       data-marker-shape={isSupportingPoint ? "dot" : "pin"}
+      tabIndex={tabIndex}
     >
       {isSupportingPoint ? (
         <span className="map-marker-dot-core" aria-hidden="true" />

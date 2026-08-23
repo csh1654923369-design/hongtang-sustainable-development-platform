@@ -122,6 +122,38 @@ try {
   assert(sceneToolsBox && sceneToolsBox.y + sceneToolsBox.height <= 828, "map tools must respect the bottom safe area");
 
   await page.screenshot({ path: resolve(outputDir, "home-mobile-390.png"), fullPage: false });
+  await page.keyboard.press("Escape");
+  for (const viewport of [
+    { width: 667, height: 375 },
+    { width: 844, height: 390 },
+    { width: 932, height: 430 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await page.waitForTimeout(420);
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - innerWidth);
+    assert(overflow <= 0, `${viewport.width}×${viewport.height} landscape must not scroll horizontally`);
+    const landscapeToolsBox = await page.locator(".map-scene-tools").boundingBox();
+    assert(insideViewport(landscapeToolsBox, viewport.width, viewport.height, 8), `map tools must stay inside ${viewport.width}×${viewport.height}`);
+
+    const landscapeMarker = await markerLayer.locator(".map-marker").evaluateAll((elements) => {
+      for (const element of elements) {
+        const rect = element.getBoundingClientRect();
+        const x = rect.left + rect.width / 2;
+        const y = rect.top + rect.height / 2;
+        if (x < 8 || y < 100 || x > innerWidth - 8 || y > innerHeight - 8) continue;
+        if (document.elementFromPoint(x, y)?.closest(".map-marker") === element) return { x, y };
+      }
+      return null;
+    });
+    assert(landscapeMarker, `a marker should remain tappable at ${viewport.width}×${viewport.height}`);
+    await page.mouse.click(landscapeMarker.x, landscapeMarker.y);
+    await page.locator(".map-selection-bubble").waitFor({ timeout: 3000 });
+    await page.waitForTimeout(360);
+    const landscapeDetailBox = await page.locator(".map-selection-bubble").boundingBox();
+    assert(insideViewport(landscapeDetailBox, viewport.width, viewport.height, 8), `detail card must stay inside ${viewport.width}×${viewport.height}`);
+    await page.keyboard.press("Escape");
+  }
+  await page.screenshot({ path: resolve(outputDir, "home-landscape-932x430.png"), fullPage: false });
   console.log(JSON.stringify({
     status: "passed",
     viewports: [360, 390, 430],

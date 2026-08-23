@@ -26,8 +26,9 @@ try {
   assert.match(await topicLauncher.textContent(), /已选择5\/5个专题/);
   assert.equal(await page.locator(".map-empty-overlay").count(), 0);
 
-  const cloudMap = page.locator(".amap-village-map[data-map-provider='amap']");
-  const cloudReady = await cloudMap.waitFor({ timeout: 15000 }).then(() => true).catch(() => false);
+  const settledMap = page.locator(".amap-village-map.amap-status-ready, .amap-village-map.amap-status-fallback");
+  await settledMap.waitFor({ timeout: 30000 });
+  const cloudReady = await settledMap.getAttribute("data-map-provider") === "amap";
   const markerRoot = cloudReady ? page.locator(".amap-react-marker-layer") : page.locator(".village-map");
   const twoDTool = page.getByRole("button", { name: "回到中心", exact: true });
   await twoDTool.waitFor();
@@ -116,14 +117,17 @@ try {
   await topicPanel.locator("[data-topic-id='safety']").getByText("5项", { exact: true }).waitFor();
   await topicPanel.locator("[data-topic-id='history']").getByText("6项", { exact: true }).waitFor();
   await markerRoot.locator("[data-marker-shape]").first().waitFor();
-  assert.equal(await markerRoot.locator("[data-marker-shape='pin']").count(), 65);
-  assert.equal(await markerRoot.locator("[data-marker-shape='dot']").count(), 158);
+  const visiblePinCount = await markerRoot.locator("[data-marker-shape='pin']").count();
+  const visibleDotCount = await markerRoot.locator("[data-marker-shape='dot']").count();
+  assert(visiblePinCount > 0 && visiblePinCount <= 65, "decluttering should keep a useful subset of pin markers");
+  assert(visibleDotCount > 0 && visibleDotCount <= 158, "decluttering should keep a useful subset of supporting dots");
+  assert.equal(Number(await markerRoot.getAttribute("data-visible-marker-count")), visiblePinCount + visibleDotCount);
   for (const [type, count, color] of [
     ["public-service", 9, "rgb(78, 128, 160)"],
     ["research-photo", 149, "rgb(162, 103, 137)"],
   ]) {
     const markers = markerRoot.locator(`[data-feature-type='${type}'][data-marker-shape='dot']`);
-    assert.equal(await markers.count(), count);
+    assert((await markers.count()) > 0 && (await markers.count()) <= count);
     assert.equal(await markers.first().evaluate((element) => getComputedStyle(element).color), color);
   }
   assert.equal(await markerRoot.locator("[data-feature-type='garden'][data-marker-shape='pin']").first().evaluate((element) => getComputedStyle(element).color), "rgb(79, 141, 85)");
@@ -136,7 +140,8 @@ try {
   await topicPanel.getByRole("button", { name: "进入小花园专题", exact: true }).click();
   await page.locator(".home-experience[data-active-village-topic='garden']").waitFor();
   await markerRoot.locator("[data-feature-type='garden']").first().waitFor();
-  assert.equal(await markerRoot.locator("[data-feature-type='garden']").count(), 35);
+  const visibleGardenCount = await markerRoot.locator("[data-feature-type='garden']").count();
+  assert(visibleGardenCount > 0 && visibleGardenCount <= 35);
   assert.equal(await markerRoot.locator("[data-feature-type]:not([data-feature-type='garden'])").count(), 0);
   await page.getByText("已接入35项空间资料", { exact: true }).waitFor();
 
@@ -188,15 +193,21 @@ try {
   await topicLauncher.click();
   await topicPanel.getByRole("button", { name: "进入塌方与安全专题", exact: true }).click();
   await page.locator(".home-experience[data-active-village-topic='safety']").waitFor();
-  await page.locator(".topic-spatial-vector").waitFor();
   await page.locator("[data-feature-type='safety-risk']").first().waitFor();
+  const selectedTopicPoint = markerRoot.locator("[data-feature-id='demo-safety-1']");
+  await selectedTopicPoint.waitFor({ state: "visible" });
+  await selectedTopicPoint.click();
+  await page.locator(".map-selection-bubble").waitFor();
+  await page.waitForTimeout(700);
+  assert.equal(await markerRoot.locator(".map-marker.active[data-feature-id='demo-safety-1']").count(), 1, "selected topic point must remain rendered and active");
+  await page.keyboard.press("Escape");
   await page.screenshot({ path: resolve(outputDir, "village-topic-safety-empty.png"), fullPage: false });
   await page.getByRole("button", { name: "退出塌方与安全专题", exact: true }).click();
 
   await topicLauncher.click();
   await topicPanel.getByRole("button", { name: "进入历史与文化专题", exact: true }).click();
   await page.locator(".home-experience[data-active-village-topic='history']").waitFor();
-  await page.locator(".topic-spatial-vector").waitFor();
+  if (cloudReady) await page.locator(".amap-spatial-accessibility [data-topic-spatial-id]").first().waitFor({ state: "attached" });
   await page.locator("[data-feature-type='village-memory'], [data-feature-type='culture']").first().waitFor();
 
   console.log(JSON.stringify({ status: "passed", topics: 5, initialSelection: "5/5", initialFalseEmptyState: false, gardenFeatures: 35, teaFeatures: 16, safetyFeatures: 5, historyFeatures: 6, solarTopic: false, topicTextMotion: "height-opacity-no-bounce", basemapTransition: true }, null, 2));

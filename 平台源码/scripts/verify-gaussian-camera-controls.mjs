@@ -6,6 +6,28 @@ const edgePath =
   process.env.EDGE_PATH ??
   "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
 
+function vectorDistance(left, right) {
+  return Math.hypot(...left.map((value, index) => value - right[index]));
+}
+
+function cameraDelta(left, right) {
+  return Math.max(
+    vectorDistance(left.position, right.position),
+    vectorDistance(left.direction, right.direction),
+    vectorDistance(left.up, right.up),
+    Math.abs(left.height - right.height),
+  );
+}
+
+function assertFiniteCamera(snapshot) {
+  assert(snapshot, "Cesium camera snapshot is unavailable");
+  assert(snapshot.position.every(Number.isFinite));
+  assert(snapshot.direction.every(Number.isFinite));
+  assert(snapshot.up.every(Number.isFinite));
+  assert(snapshot.right.every(Number.isFinite));
+  assert(Number.isFinite(snapshot.height));
+}
+
 const browser = await chromium.launch({
   executablePath: edgePath,
   headless: true,
@@ -25,7 +47,14 @@ try {
     const failure = request.failure();
     browserErrors.push(`${request.url()}: ${failure?.errorText ?? "request failed"}`);
   });
+
   await page.goto(baseURL, { waitUntil: "domcontentloaded", timeout: 30000 });
+  await page
+    .locator(".amap-village-map[data-map-provider='amap']")
+    .waitFor({ state: "visible", timeout: 30000 });
+  await page.getByRole("button", { name: "3D实景", exact: true }).click();
+  await page.locator(".gaussian-home").waitFor({ timeout: 30000 });
+
   try {
     await page.locator('[data-gaussian-state="ready"]').waitFor({ timeout: 60000 });
   } catch (error) {
@@ -36,7 +65,7 @@ try {
       .catch(() => null);
     const iframeStatus = await page
       .frameLocator("#hongtang-gaussian-frame")
-      .locator("#statusText")
+      .locator("#viewerStatus")
       .textContent()
       .catch(() => null);
     throw new Error(
@@ -46,212 +75,139 @@ try {
   }
 
   const frame = page.frameLocator("#hongtang-gaussian-frame");
-  const toolbar = frame.locator(".viewer-tools");
+  const viewerBody = frame.locator('body[data-cesium-ready="true"][data-model-ready="true"]');
+  await viewerBody.waitFor({ timeout: 30000 });
+  await frame
+    .locator('body:not([data-real-point-count="0"]):not([data-visible-point-count="0"])')
+    .waitFor({ timeout: 30000 });
+
+  const toolbar = frame.locator(".scene-tools");
   const toolbarState = {
-    layout: await toolbar.getAttribute("data-toolbar-layout"),
     labels: await toolbar.locator("button").evaluateAll((buttons) =>
-      buttons.map((button) => button.getAttribute("aria-label")),
-    ),
-    iconCount: await toolbar.locator("svg").count(),
+      buttons
+        .filter((button) => getComputedStyle(button).display !== "none")
+        .map((button) => button.getAttribute("aria-label"))),
     homeCardCount: await frame.locator(".home-card").count(),
   };
   assert.deepEqual(toolbarState, {
-    layout: "bottom-right-vertical-icons",
     labels: ["回到中心", "操作设置", "全屏查看"],
-    iconCount: 3,
     homeCardCount: 0,
   });
+
+  const loadState = {
+    cesiumReady: await viewerBody.getAttribute("data-cesium-ready"),
+    modelReady: await viewerBody.getAttribute("data-model-ready"),
+    modelSource: await viewerBody.getAttribute("data-model-source"),
+    terrainMode: await viewerBody.getAttribute("data-terrain-mode"),
+    realPointCount: Number(await viewerBody.getAttribute("data-real-point-count")),
+    visiblePointCount: Number(await viewerBody.getAttribute("data-visible-point-count")),
+  };
+  assert.equal(loadState.cesiumReady, "true");
+  assert.equal(loadState.modelReady, "true");
+  assert(["cesium-ion", "local-fallback"].includes(loadState.modelSource));
+  assert(["cesium-world-terrain", "local-height-overlay", "ellipsoid-fallback"].includes(loadState.terrainMode));
+  assert(loadState.realPointCount > 0);
+  assert(loadState.visiblePointCount > 0);
+
+  const controlState = {
+    leftDrag: await viewerBody.getAttribute("data-left-drag-action"),
+    rightDrag: await viewerBody.getAttribute("data-right-drag-action"),
+    wheel: await viewerBody.getAttribute("data-wheel-action"),
+    middleDrag: await viewerBody.getAttribute("data-middle-drag-action"),
+  };
+  assert.deepEqual(controlState, {
+    leftDrag: "horizontal-pan",
+    rightDrag: "orbit-screen-center-relative",
+    wheel: "fixed-ratio-zoom",
+    middleDrag: "disabled",
+  });
+
   const canvas = frame.locator(".cesium-widget canvas").first();
-  const html = frame.locator("html[data-gaussian-camera-signature]");
-  await canvas.waitFor({ timeout: 30000 });
-  await html.waitFor({ timeout: 30000 });
-
-  const environment = {
-    terrain: await html.getAttribute("data-terrain-mode"),
-    worldImagery: await html.getAttribute("data-world-imagery-mode"),
-    localImagery: await html.getAttribute("data-local-imagery-mode"),
-    terrainDepthOcclusion: await html.getAttribute("data-terrain-depth-occlusion"),
-    modelGeoreferenced: await html.getAttribute("data-model-georeferenced"),
-    modelOriginLongitude: await html.getAttribute("data-model-origin-longitude"),
-    modelOriginLatitude: await html.getAttribute("data-model-origin-latitude"),
-    modelOriginHeight: await html.getAttribute("data-model-origin-height"),
-  };
-  assert.deepEqual(environment, {
-    terrain: "world",
-    worldImagery: "world-aerial",
-    localImagery: "drone-orthophoto",
-    terrainDepthOcclusion: "disabled-for-gaussian-overlay",
-    modelGeoreferenced: "true",
-    modelOriginLongitude: "99.908740607",
-    modelOriginLatitude: "24.636255278",
-    modelOriginHeight: "1764.0",
-  });
-  const pointPlacements = JSON.parse(
-    await html.getAttribute("data-gaussian-point-placement-manifest"),
-  );
-  assert.equal(await html.getAttribute("data-gaussian-point-visible-count"), "5");
-  assert.deepEqual(pointPlacements.map((point) => point.id), [
-    "map-13",
-    "map-14",
-    "map-15",
-    "map-16",
-    "map-17",
-  ]);
-  assert(pointPlacements.every((point) => point.source.startsWith("gaussian")));
-  assert(
-    pointPlacements.every(
-      (point) => point.terrainHeight === null || point.height > point.terrainHeight,
-    ),
-  );
-
-  const flags = {
-    leftPan: await canvas.getAttribute("data-horizontal-left-pan"),
-    rightOrbit: await canvas.getAttribute("data-right-orbit"),
-    rightOrbitPivot: await canvas.getAttribute("data-right-orbit-pivot"),
-    rightOrbitVerticalMode: await canvas.getAttribute("data-right-orbit-vertical-mode"),
-    middleDisabled: await canvas.getAttribute("data-middle-drag-disabled"),
-  };
-  assert.deepEqual(flags, {
-    leftPan: "true",
-    rightOrbit: "true",
-    rightOrbitPivot: "screen-center",
-    rightOrbitVerticalMode: "screen-center-orbit",
-    middleDisabled: "true",
-  });
-
-  await canvas.dispatchEvent("pointerdown", {
-    pointerId: 91,
-    button: 0,
-    buttons: 1,
-    clientX: 260,
-    clientY: 260,
-  });
-  await canvas.dispatchEvent("pointermove", {
-    pointerId: 91,
-    button: -1,
-    buttons: 1,
-    clientX: 300,
-    clientY: 275,
-  });
-  await canvas.dispatchEvent("pointerup", {
-    pointerId: 91,
-    button: 0,
-    buttons: 0,
-    clientX: 300,
-    clientY: 275,
-  });
-  assert.equal(await canvas.getAttribute("data-pan-moves"), "1");
-
-  await canvas.dispatchEvent("pointerdown", {
-    pointerId: 92,
-    button: 1,
-    buttons: 4,
-    clientX: 320,
-    clientY: 280,
-  });
-  await canvas.dispatchEvent("pointermove", {
-    pointerId: 92,
-    button: -1,
-    buttons: 4,
-    clientX: 360,
-    clientY: 300,
-  });
-  await canvas.dispatchEvent("pointerup", {
-    pointerId: 92,
-    button: 1,
-    buttons: 0,
-    clientX: 360,
-    clientY: 300,
-  });
-  assert.equal(await canvas.getAttribute("data-pan-moves"), "1");
-
+  await canvas.waitFor({ state: "visible", timeout: 30000 });
   const canvasBox = await canvas.boundingBox();
   assert(canvasBox, "3D canvas is not visible");
-  const beforeOrbit = await html.getAttribute("data-gaussian-camera-signature");
-  const orbitMovesBefore = Number(await canvas.getAttribute("data-orbit-moves"));
+
+  const cameraSnapshot = async () => {
+    const snapshot = await viewerBody.evaluate(() => window.__hongtangCesium?.cameraSnapshot?.());
+    assertFiniteCamera(snapshot);
+    return snapshot;
+  };
+
+  const leftBefore = await cameraSnapshot();
+  await page.mouse.move(canvasBox.x + canvasBox.width * 0.36, canvasBox.y + canvasBox.height * 0.62);
+  await page.mouse.down({ button: "left" });
   await page.mouse.move(
-    canvasBox.x + canvasBox.width * 0.65,
-    canvasBox.y + canvasBox.height * 0.65,
+    canvasBox.x + canvasBox.width * 0.42,
+    canvasBox.y + canvasBox.height * 0.64,
+    { steps: 5 },
   );
+  await page.mouse.up({ button: "left" });
+  await page.waitForTimeout(250);
+  const leftAfter = await cameraSnapshot();
+  assert(vectorDistance(leftBefore.position, leftAfter.position) > 0.01, "left drag should pan the camera");
+  assert(vectorDistance(leftBefore.direction, leftAfter.direction) < 1e-5, "left drag should preserve view direction");
+
+  const middleBefore = await cameraSnapshot();
+  await page.mouse.move(canvasBox.x + canvasBox.width * 0.44, canvasBox.y + canvasBox.height * 0.58);
+  await page.mouse.down({ button: "middle" });
+  await page.mouse.move(
+    canvasBox.x + canvasBox.width * 0.5,
+    canvasBox.y + canvasBox.height * 0.62,
+    { steps: 4 },
+  );
+  await page.mouse.up({ button: "middle" });
+  await page.waitForTimeout(200);
+  const middleAfter = await cameraSnapshot();
+  assert(cameraDelta(middleBefore, middleAfter) < 1e-5, "middle drag should remain disabled");
+
+  const orbitBefore = await cameraSnapshot();
+  await page.mouse.move(canvasBox.x + canvasBox.width * 0.65, canvasBox.y + canvasBox.height * 0.62);
   await page.mouse.down({ button: "right" });
   await page.mouse.move(
     canvasBox.x + canvasBox.width * 0.72,
-    canvasBox.y + canvasBox.height * 0.65,
+    canvasBox.y + canvasBox.height * 0.62,
     { steps: 5 },
   );
   await page.mouse.up({ button: "right" });
-  await page.waitForTimeout(300);
-  const afterOrbit = await html.getAttribute("data-gaussian-camera-signature");
-  assert.notEqual(afterOrbit, beforeOrbit);
-  const orbitMoves = Number(await canvas.getAttribute("data-orbit-moves"));
-  const orbitPivotScreenError = Number(
-    await canvas.getAttribute("data-right-orbit-pivot-screen-error"),
-  );
-  assert(orbitMoves > orbitMovesBefore);
-  assert(orbitPivotScreenError <= 1);
+  await page.waitForTimeout(250);
+  const orbitAfter = await cameraSnapshot();
+  assert(vectorDistance(orbitBefore.position, orbitAfter.position) > 0.01, "right drag should orbit the camera position");
+  assert(vectorDistance(orbitBefore.direction, orbitAfter.direction) > 1e-6, "right drag should rotate the view direction");
 
-  const positionBeforeUp = await html.getAttribute("data-gaussian-camera-position-signature");
-  const tiltBeforeUp = Number(await canvas.getAttribute("data-right-orbit-tilt-degrees"));
-  const verticalMovesBeforeUp = Number(await canvas.getAttribute("data-orbit-vertical-moves"));
-  await page.mouse.move(
-    canvasBox.x + canvasBox.width * 0.68,
-    canvasBox.y + canvasBox.height * 0.65,
-  );
+  const verticalBefore = await cameraSnapshot();
+  await page.mouse.move(canvasBox.x + canvasBox.width * 0.68, canvasBox.y + canvasBox.height * 0.64);
   await page.mouse.down({ button: "right" });
   await page.mouse.move(
     canvasBox.x + canvasBox.width * 0.68,
-    canvasBox.y + canvasBox.height * 0.57,
+    canvasBox.y + canvasBox.height * 0.56,
     { steps: 5 },
   );
   await page.mouse.up({ button: "right" });
-  await page.waitForTimeout(300);
-  const tiltAfterUp = Number(await canvas.getAttribute("data-right-orbit-tilt-degrees"));
-  assert(tiltAfterUp < tiltBeforeUp);
-  assert.notEqual(await html.getAttribute("data-gaussian-camera-position-signature"), positionBeforeUp);
-  assert(Number(await canvas.getAttribute("data-orbit-vertical-moves")) > verticalMovesBeforeUp);
-  assert(Number(await canvas.getAttribute("data-right-orbit-pivot-screen-error")) <= 1);
+  await page.waitForTimeout(250);
+  const verticalAfter = await cameraSnapshot();
+  assert(cameraDelta(verticalBefore, verticalAfter) > 1e-5, "vertical right drag should change camera pitch");
 
-  const positionBeforeDown = await html.getAttribute("data-gaussian-camera-position-signature");
-  const tiltBeforeDown = Number(await canvas.getAttribute("data-right-orbit-tilt-degrees"));
-  await page.mouse.move(
-    canvasBox.x + canvasBox.width * 0.68,
-    canvasBox.y + canvasBox.height * 0.57,
-  );
-  await page.mouse.down({ button: "right" });
-  await page.mouse.move(
-    canvasBox.x + canvasBox.width * 0.68,
-    canvasBox.y + canvasBox.height * 0.72,
-    { steps: 5 },
-  );
-  await page.mouse.up({ button: "right" });
-  await page.waitForTimeout(300);
-  const tiltAfterDown = Number(await canvas.getAttribute("data-right-orbit-tilt-degrees"));
-  assert(tiltAfterDown > tiltBeforeDown);
-  assert.notEqual(await html.getAttribute("data-gaussian-camera-position-signature"), positionBeforeDown);
-  assert(Number(await canvas.getAttribute("data-right-orbit-pivot-screen-error")) <= 1);
+  const wheelBefore = await cameraSnapshot();
+  await page.mouse.move(canvasBox.x + canvasBox.width * 0.5, canvasBox.y + canvasBox.height * 0.5);
+  await page.mouse.wheel(0, -100);
+  await page.waitForTimeout(250);
+  const wheelAfter = await cameraSnapshot();
+  assert(vectorDistance(wheelBefore.position, wheelAfter.position) > 0.01, "wheel should change camera range");
+  assert(vectorDistance(wheelBefore.direction, wheelAfter.direction) < 1e-5, "wheel should preserve view direction");
 
-  await canvas.dispatchEvent("wheel", { deltaY: -100 });
-  assert.equal(await canvas.getAttribute("data-wheel-steps"), "1");
-
-  console.log(
-    JSON.stringify({
-      environment,
-      toolbarState,
-      pointPlacements,
-      flags,
-      panMoves: await canvas.getAttribute("data-pan-moves"),
-      rightOrbitChangedCamera: beforeOrbit !== afterOrbit,
-      orbitMoves,
-      orbitPivotScreenError,
-      orbitPivotSource: await canvas.getAttribute("data-right-orbit-pivot-source"),
-      verticalOrbitKeptScreenCenter: true,
-      tiltBeforeUp,
-      tiltAfterUp,
-      tiltBeforeDown,
-      tiltAfterDown,
-      wheelSteps: await canvas.getAttribute("data-wheel-steps"),
-    }),
-  );
+  console.log(JSON.stringify({
+    status: "passed",
+    loadState,
+    toolbarState,
+    controlState,
+    leftPanDistance: vectorDistance(leftBefore.position, leftAfter.position),
+    middleDragDelta: cameraDelta(middleBefore, middleAfter),
+    orbitPositionDelta: vectorDistance(orbitBefore.position, orbitAfter.position),
+    orbitDirectionDelta: vectorDistance(orbitBefore.direction, orbitAfter.direction),
+    verticalOrbitDelta: cameraDelta(verticalBefore, verticalAfter),
+    wheelDistance: vectorDistance(wheelBefore.position, wheelAfter.position),
+    browserErrors,
+  }, null, 2));
 } finally {
   await browser.close();
 }

@@ -18,6 +18,7 @@ import {
   Layers3,
   MapPin,
   MousePointer2,
+  PanelRight,
   Pentagon,
   Plus,
   Redo2,
@@ -140,6 +141,7 @@ export function MapDataEditor() {
   const [runtime, setRuntime] = useState<EditorRuntime>();
   const [mapStatus, setMapStatus] = useState<"loading" | "ready" | "fallback">("loading");
   const [sourceData, setSourceData] = useState<TemporaryMapData>();
+  const [dataStatus, setDataStatus] = useState<"loading" | "ready" | "error">("loading");
   const [draft, setDraft] = useState<TemporaryMapData>();
   const [selection, setSelection] = useState<EditorSelection>();
   const [activeTopicId, setActiveTopicId] = useState<VillageTopicId>("garden");
@@ -158,6 +160,7 @@ export function MapDataEditor() {
   const [dirty, setDirty] = useState(false);
   const [undoStack, setUndoStack] = useState<TemporaryMapData[]>([]);
   const [redoStack, setRedoStack] = useState<TemporaryMapData[]>([]);
+  const [mobilePanel, setMobilePanel] = useState<"none" | "layers" | "properties">("none");
   const sourceIdRef = useRef(makeId("editor"));
   const draftRef = useRef<TemporaryMapData | undefined>(undefined);
   const historyGroupRef = useRef<string | undefined>(undefined);
@@ -171,7 +174,7 @@ export function MapDataEditor() {
     const source = cloneData(next);
     const current = cloneData(next);
     draftRef.current = current;
-    setSourceData(source); setDraft(current); setDirty(false); clearHistory();
+    setSourceData(source); setDraft(current); setDataStatus("ready"); setDirty(false); clearHistory();
   }, [clearHistory]);
 
   useEffect(() => {
@@ -192,7 +195,7 @@ export function MapDataEditor() {
       if (!active || getTemporaryMapData()) return;
       const next = { features: features.features, waterSystem, topicSpatial };
       installDraft(next);
-    }).catch(() => { if (active) setNotice("读取平台数据失败，请返回平台后重试。"); });
+    }).catch(() => { if (active) { setDataStatus("error"); setNotice("读取平台数据失败，请重试。"); } });
     if (existing) {
       queueMicrotask(() => {
         if (!active) return;
@@ -338,6 +341,7 @@ export function MapDataEditor() {
 
   const selectAndFocus = (next: EditorSelection, layer?: EditorLayerGroup) => {
     setSelection(next); setTool("select"); setDrawing([]); setDrawTarget(undefined);
+    setMobilePanel("properties");
     if (layer) {
       setActiveTopicId(layer.topicId); setSelectedLayerId(layer.id);
       setExpandedTopics((current) => new Set(current).add(layer.topicId));
@@ -369,6 +373,7 @@ export function MapDataEditor() {
 
   const beginCreate = (layer: EditorLayerGroup) => {
     selectLayer(layer);
+    setMobilePanel("none");
     const nextTool: EditorTool = layer.geometryType === "point" ? "add-point" : layer.geometryType === "line" ? "draw-line" : "draw-polygon";
     setDrawTarget({ kind: layer.dataKind, layerId: layer.id, topicId: layer.topicId, geometryType: layer.geometryType });
     setTool(nextTool); setDrawing([]);
@@ -504,6 +509,16 @@ export function MapDataEditor() {
     publishTemporaryMapData(draft, sourceIdRef.current);
   };
 
+  useEffect(() => {
+    if (!dirty) return;
+    const protectUnsavedDraft = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", protectUnsavedDraft);
+    return () => window.removeEventListener("beforeunload", protectUnsavedDraft);
+  }, [dirty]);
+
 
   const drawingPixels = drawing.map((coordinate) => {
     if (!runtime) return undefined;
@@ -515,7 +530,7 @@ export function MapDataEditor() {
   const selectedTopicLayer = selectedTopicFeature ? findTopicLayer(draft?.topicSpatial, selectedTopicFeature.layerId) : undefined;
 
   return (
-    <main className="map-data-editor map-data-editor-v2" data-editor-dirty={dirty} data-map-status={mapStatus} data-active-topic={activeTopicId}>
+    <main className="map-data-editor map-data-editor-v2" data-editor-dirty={dirty} data-map-status={mapStatus} data-data-status={dataStatus} data-active-topic={activeTopicId} data-mobile-panel={mobilePanel}>
       <header className="map-editor-header">
         <div className="map-editor-heading">
           <Link href="/" className="map-editor-back"><ArrowLeft size={18} />返回平台</Link>
@@ -528,8 +543,19 @@ export function MapDataEditor() {
       </header>
       <div className="map-editor-notice" role="status"><CircleDot size={15} /><span>{notice}</span></div>
       <section className="map-editor-workspace">
-        <aside className="map-editor-sidebar" aria-label="专题图层目录">
-          <div className="map-editor-pane-title"><div><Layers3 size={17} /><strong>图层</strong></div><span>{topicGroups.reduce((sum, topic) => sum + topic.layers.length, 0)}层</span></div>
+        {mobilePanel !== "none" ? <button type="button" className="map-editor-mobile-backdrop" aria-label="关闭面板" onClick={() => setMobilePanel("none")} /> : null}
+        <nav className="map-editor-mobile-nav" aria-label="打开编辑面板">
+          <button type="button" className={mobilePanel === "layers" ? "active" : ""} aria-expanded={mobilePanel === "layers"} onClick={() => setMobilePanel((current) => current === "layers" ? "none" : "layers")}><Layers3 size={18} />图层</button>
+          <button type="button" className={mobilePanel === "properties" ? "active" : ""} aria-expanded={mobilePanel === "properties"} onClick={() => setMobilePanel((current) => current === "properties" ? "none" : "properties")}><PanelRight size={18} />属性</button>
+        </nav>
+        <aside className={`map-editor-sidebar${mobilePanel === "layers" ? " mobile-open" : ""}`} aria-label="专题图层目录">
+          <div className="map-editor-pane-title"><div><Layers3 size={17} /><strong>图层</strong></div><div className="map-editor-pane-actions"><span>{dataStatus === "ready" ? `${topicGroups.reduce((sum, topic) => sum + topic.layers.length, 0)}层` : dataStatus === "error" ? "读取失败" : "载入中"}</span><button type="button" className="map-editor-mobile-panel-close" aria-label="关闭图层面板" onClick={() => setMobilePanel("none")}><X size={18} /></button></div></div>
+          {dataStatus !== "ready" ? <div className="map-editor-data-status" role="status">
+            <Layers3 size={26} aria-hidden="true" />
+            <strong>{dataStatus === "error" ? "图层读取失败" : "正在读取图层"}</strong>
+            <p>{dataStatus === "error" ? "请检查网络后重新读取。" : "正在整理专题、图层与要素，请稍候。"}</p>
+            {dataStatus === "error" ? <button type="button" onClick={() => window.location.reload()}>重新读取</button> : null}
+          </div> : null}
           <label className="map-editor-search"><Search size={15} /><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="搜索当前图层内的要素" /></label>
           <div className="map-editor-topic-tree">
             {topicGroups.map((topic) => {
@@ -624,8 +650,9 @@ export function MapDataEditor() {
           {mapStatus === "fallback" ? <div className="map-editor-map-status warning">底图暂不可用，请检查高德配置</div> : null}
         </div>
 
-        <aside className="map-editor-properties" aria-label="要素详情" onBlurCapture={finishHistoryGroup}>
-          {selection && draft && selectedTitle ? <>
+        <aside className={`map-editor-properties${mobilePanel === "properties" ? " mobile-open" : ""}`} aria-label="要素详情" onBlurCapture={finishHistoryGroup}>
+          <button type="button" className="map-editor-mobile-panel-close map-editor-properties-close" aria-label="关闭属性面板" onClick={() => setMobilePanel("none")}><X size={18} /></button>
+          {dataStatus !== "ready" ? <div className="map-editor-properties-empty"><Layers3 size={28} /><strong>{dataStatus === "error" ? "图层读取失败" : "正在读取图层"}</strong><p>{dataStatus === "error" ? "请在左侧点击“重新读取”。" : "数据就绪后即可查看和编辑要素属性。"}</p></div> : selection && draft && selectedTitle ? <>
             <div className="map-editor-properties-heading"><div><strong>{selectedTitle}</strong><span>{selectionLayer?.title ?? editorKindLabel(selection.kind)} · {selectedGeometryType ? topicGeometryLabel(selectedGeometryType) : ""}</span></div><button type="button" onClick={deleteSelection} title="删除要素"><Trash2 size={17} /></button></div>
             <div className="map-editor-properties-section"><h2>基本信息</h2>
               <label>名称<input value={selectedTitle} onChange={(event) => updateCommonSelected({ title: event.target.value })} /></label>
