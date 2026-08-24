@@ -64,8 +64,12 @@ if (-not (Get-Command npm.cmd -ErrorAction SilentlyContinue)) {
 }
 
 if (-not (Test-Path -LiteralPath (Join-Path $projectRoot "node_modules"))) {
-  Write-Host "项目依赖尚未安装。请先在项目终端运行：npm install" -ForegroundColor Yellow
-  exit 1
+  Write-Host "第一次启动，正在安装运行依赖，请保持网络连接……" -ForegroundColor Yellow
+  & npm.cmd install
+  if ($LASTEXITCODE -ne 0) {
+    Write-Host "项目依赖安装失败。请检查网络连接后重新双击启动网站。" -ForegroundColor Red
+    exit 1
+  }
 }
 
 Write-Host "正在启动红塘村可持续发展平台，请稍候……"
