@@ -51,6 +51,9 @@ jobs:
       - name: Verify topic spatial data
         run: npm run test:topic-spatial
 
+      - name: Verify V1.2 human-settlement workflow
+        run: npm run test:v12
+
       - name: Check types
         run: npm run typecheck
 

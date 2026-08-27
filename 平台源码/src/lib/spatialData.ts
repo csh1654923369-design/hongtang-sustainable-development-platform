@@ -1,4 +1,5 @@
 import { MapFeatureType, SpatialFeature } from "@/types";
+import type { HumanSettlementProfile } from "@/lib/humanSettlement";
 
 export type FieldworkModuleId = "garden" | "water" | "tea" | "safety" | "history";
 export type WaterNodeKind = "source" | "storage" | "supply" | "treatment";
@@ -70,6 +71,7 @@ export interface WaterSystemNode {
   functions?: string[];
   maintenance?: string;
   openQuestions?: string[];
+  humanSettlement?: HumanSettlementProfile;
 }
 
 export interface WaterSystemLine {
@@ -88,6 +90,7 @@ export interface WaterSystemLine {
   flowDescription?: string;
   maintenance?: string;
   openQuestions?: string[];
+  humanSettlement?: HumanSettlementProfile;
 }
 
 export interface WaterSystemZone {
@@ -105,6 +108,7 @@ export interface WaterSystemZone {
   servedUses?: string[];
   maintenance?: string;
   openQuestions?: string[];
+  humanSettlement?: HumanSettlementProfile;
 }
 
 export interface WaterSystemData {
@@ -203,6 +207,7 @@ export function waterNodesToSpatialFeatures(data?: WaterSystemData): SpatialFeat
     imageLabel: waterNodeLabels[node.kind],
     sourceLabel: data.notice,
     waterSystemBranch: node.system,
+    humanSettlement: node.humanSettlement,
   }));
 }
 

@@ -1,1 +1,0 @@
-import{ln as r}from"./src-Cjv_08Cn.js";var e="https://cdn.jsdelivr.net/pyodide/v0.27.7/full/";function i(n=r()){const t=n.VITE_PYODIDE_INDEX_URL?.trim()||e;return t.endsWith("/")?t:`${t}/`}function d(n){return n===e}export{d as n,i as t};

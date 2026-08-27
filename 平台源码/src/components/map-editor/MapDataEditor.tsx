@@ -56,6 +56,17 @@ import {
 import { mapFeatureLabels } from "@/lib/utils";
 import { villageTopicById, type VillageTopicId } from "@/lib/villageTopics";
 import { MapFeatureType, type SpatialFeature } from "@/types";
+import {
+  actionStages,
+  evidenceStatuses,
+  resolveHumanSettlementProfile,
+  settlementScales,
+  topicForFeatureType,
+  type ActionStageId,
+  type EvidenceStatusId,
+  type HumanSettlementProfile,
+  type SettlementScaleId,
+} from "@/lib/humanSettlement";
 
 type EditorSelection = { kind: EditorDataKind; id: string };
 type EditorTool = "select" | "add-point" | "draw-line" | "draw-polygon";
@@ -117,6 +128,7 @@ function defaultPointFeature(layer: EditorLayerGroup, coordinate: TopicCoordinat
     longitude: coordinate[0], latitude: coordinate[1], mapX: 0, mapY: 0,
     updatedAt: today(), goalId: `topic-${layer.topicId}`, publicParticipation: false,
     submittedByMe: false, geometry: { type: "Point", coordinates: coordinate }, imageLabel: layer.title,
+    humanSettlement: { scale: "site", evidenceStatus: "pending", actionStage: "verify", steward: "待共同确认" },
   };
 }
 
@@ -132,6 +144,7 @@ function defaultTopicFeature(layer: EditorLayerGroup, coordinates: TopicCoordina
     title: `新${layer.title}`, status: "临时编辑", location: "红塘村", description: "请补充说明。",
     updatedAt: today(), isDemo: true, geometry,
     properties: Object.fromEntries((definition?.fields ?? []).map((field) => [field.key, field.editor === "number" ? 0 : ""])),
+    humanSettlement: { scale: "site", evidenceStatus: "pending", actionStage: "verify", steward: "待共同确认" },
   };
 }
 
@@ -165,6 +178,7 @@ export function MapDataEditor() {
   const draftRef = useRef<TemporaryMapData | undefined>(undefined);
   const historyGroupRef = useRef<string | undefined>(undefined);
   const dragRef = useRef<{ selection: EditorSelection; pointIndex?: number } | undefined>(undefined);
+  const deepLinkAppliedRef = useRef(false);
 
   const clearHistory = useCallback(() => {
     setUndoStack([]); setRedoStack([]); historyGroupRef.current = undefined;
@@ -245,6 +259,11 @@ export function MapDataEditor() {
   const selectedTopicFeature = selection?.kind === "topic-spatial" ? draft?.topicSpatial.features.find((item) => item.id === selection.id) : undefined;
   const selectedTitle = selectedFeature?.title ?? selectedWaterNode?.title ?? selectedWaterLine?.title ?? selectedWaterZone?.title ?? selectedTopicFeature?.title;
   const selectedGeometryType: TopicGeometryType | undefined = selectedFeature || selectedWaterNode ? "point" : selectedWaterLine ? "line" : selectedWaterZone ? "polygon" : selectedTopicFeature ? topicFeatureGeometryType(selectedTopicFeature) : undefined;
+  const selectedStatus = selectedFeature?.status ?? selectedWaterNode?.status ?? selectedWaterLine?.status ?? selectedWaterZone?.status ?? selectedTopicFeature?.status ?? "";
+  const selectedUpdatedAt = selectedFeature?.updatedAt ?? selectedTopicFeature?.updatedAt ?? draft?.waterSystem.updatedAt;
+  const selectedTopicId = selectedFeature ? topicForFeatureType(selectedFeature.featureType) : selectedTopicFeature?.topicId ?? (selectedWaterNode || selectedWaterLine || selectedWaterZone ? "water" : undefined);
+  const selectedHumanSettlement = selectedFeature?.humanSettlement ?? selectedWaterNode?.humanSettlement ?? selectedWaterLine?.humanSettlement ?? selectedWaterZone?.humanSettlement ?? selectedTopicFeature?.humanSettlement;
+  const resolvedSelectedProfile = selection ? resolveHumanSettlementProfile({ topicId: selectedTopicId, featureType: selectedFeature?.featureType, status: selectedStatus, updatedAt: selectedUpdatedAt, existing: selectedHumanSettlement }) : undefined;
 
   useEffect(() => { draftRef.current = draft; }, [draft]);
 
@@ -364,6 +383,35 @@ export function MapDataEditor() {
     if (coordinate) runtime.map.setZoomAndCenter(Math.max(runtime.map.getZoom(), 17.1), wgs84ToGcj02(...coordinate), false, 220);
   };
 
+  useEffect(() => {
+    if (deepLinkAppliedRef.current || !draft || !topicGroups.length) return;
+    const timer = window.setTimeout(() => {
+      const params = new URLSearchParams(window.location.search);
+      const id = params.get("feature");
+      const kind = params.get("kind") as EditorDataKind | null;
+      if (!id || !kind || !["base-point", "water-node", "water-line", "water-zone", "topic-spatial"].includes(kind)) {
+        deepLinkAppliedRef.current = true;
+        return;
+      }
+      let layer: EditorLayerGroup | undefined;
+      if (kind === "base-point") {
+        const feature = draft.features.find((item) => item.id === id);
+        layer = topicGroups.flatMap((topic) => topic.layers).find((item) => item.dataKind === "base-point" && feature && item.featureType === feature.featureType);
+      } else if (kind === "water-node") layer = layerById.get("water-nodes");
+      else if (kind === "water-line") layer = layerById.get("water-lines");
+      else if (kind === "water-zone") layer = layerById.get("water-zones");
+      else {
+        const feature = draft.topicSpatial.features.find((item) => item.id === id);
+        if (feature) layer = layerById.get(feature.layerId);
+      }
+      deepLinkAppliedRef.current = true;
+      if (layer) selectAndFocus({ kind, id }, layer);
+    }, 0);
+    return () => window.clearTimeout(timer);
+    // selectAndFocus reads the current map and draft only when this one-time deep link is applied.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft, layerById, runtime, topicGroups]);
+
   const coordinateFromPointer = (event: React.PointerEvent<HTMLElement>): TopicCoordinate | undefined => {
     if (!runtime || !mapShellRef.current) return undefined;
     const rect = mapShellRef.current.getBoundingClientRect();
@@ -482,6 +530,22 @@ export function MapDataEditor() {
     }, `field:${selectionKey(selection)}:${Object.keys(patch)[0]}`);
   };
 
+  const updateSelectedHumanSettlement = (patch: Partial<HumanSettlementProfile>) => {
+    if (!selection) return;
+    updateDraft((next) => {
+      const merge = (existing?: HumanSettlementProfile) => ({
+        ...resolveHumanSettlementProfile({ topicId: selectedTopicId, featureType: selectedFeature?.featureType, status: selectedStatus, updatedAt: selectedUpdatedAt, existing }),
+        ...patch,
+      });
+      if (selection.kind === "base-point") next.features = next.features.map((item) => item.id === selection.id ? { ...item, humanSettlement: merge(item.humanSettlement) } : item);
+      if (selection.kind === "water-node") next.waterSystem.nodes = next.waterSystem.nodes.map((item) => item.id === selection.id ? { ...item, humanSettlement: merge(item.humanSettlement) } : item);
+      if (selection.kind === "water-line") next.waterSystem.lines = next.waterSystem.lines.map((item) => item.id === selection.id ? { ...item, humanSettlement: merge(item.humanSettlement) } : item);
+      if (selection.kind === "water-zone") next.waterSystem.zones = next.waterSystem.zones.map((item) => item.id === selection.id ? { ...item, humanSettlement: merge(item.humanSettlement) } : item);
+      if (selection.kind === "topic-spatial") next.topicSpatial.features = next.topicSpatial.features.map((item) => item.id === selection.id ? { ...item, humanSettlement: merge(item.humanSettlement) } : item);
+      return next;
+    }, `field:${selectionKey(selection)}:human-settlement:${Object.keys(patch)[0]}`);
+  };
+
   const changeSelectedTopicProperty = (key: string, value: string | number) => {
     if (!selectedTopicFeature) return;
     updateDraft((next) => {
@@ -589,7 +653,7 @@ export function MapDataEditor() {
               </section>;
             })}
           </div>
-          <div className="map-editor-catalog-note"><Database size={15} /><span><strong>数据说明</strong>已有点位与水专题为平台数据；新增四专题内容均标记为试验数据、待实地核实。</span></div>
+          <div className="map-editor-catalog-note"><Database size={15} /><span><strong>数据说明</strong>已有资料与待调查线索分开标记；未经核实的内容不会自动当作村庄事实。</span></div>
         </aside>
 
         <nav className="map-editor-tool-rail" aria-label="地图编辑工具">
@@ -660,6 +724,20 @@ export function MapDataEditor() {
               <label>状态<input value={selectedFeature?.status ?? selectedWaterNode?.status ?? selectedWaterLine?.status ?? selectedWaterZone?.status ?? selectedTopicFeature?.status ?? ""} onChange={(event) => updateCommonSelected({ status: event.target.value })} /></label>
               <label>说明<textarea rows={4} value={selectedFeature?.description ?? selectedWaterNode?.description ?? selectedWaterLine?.description ?? selectedWaterZone?.description ?? selectedTopicFeature?.description ?? ""} onChange={(event) => updateCommonSelected({ description: event.target.value })} /></label>
             </div>
+            {resolvedSelectedProfile ? <div className="map-editor-properties-section map-editor-human-settlement-section"><h2>核实、关系与行动</h2><p className="map-editor-field-hint">所有专题共用这些字段，2D、3D 和详情卡片会同步显示。</p>
+              <div className="map-editor-coordinate-grid">
+                <label>资料依据<select value={resolvedSelectedProfile.evidenceStatus} onChange={(event) => updateSelectedHumanSettlement({ evidenceStatus: event.target.value as EvidenceStatusId })}>{Object.entries(evidenceStatuses).map(([id, item]) => <option key={id} value={id}>{item.label}</option>)}</select></label>
+                <label>观察尺度<select value={resolvedSelectedProfile.scale} onChange={(event) => updateSelectedHumanSettlement({ scale: event.target.value as SettlementScaleId })}>{Object.entries(settlementScales).map(([id, item]) => <option key={id} value={id}>{item.label}</option>)}</select></label>
+              </div>
+              <label>记录或核实日期<input type="date" value={resolvedSelectedProfile.observedAt ?? ""} onChange={(event) => updateSelectedHumanSettlement({ observedAt: event.target.value })} /></label>
+              <label>依据说明<textarea rows={3} value={resolvedSelectedProfile.evidenceNote ?? ""} placeholder="例如：村民口述、现场照片、规划资料或踏勘记录" onChange={(event) => updateSelectedHumanSettlement({ evidenceNote: event.target.value })} /></label>
+              <label>关联对象<textarea rows={2} value={resolvedSelectedProfile.relatedLabels?.join("、") ?? ""} placeholder="用顿号分隔，例如：水源、供水线路、使用家庭" onChange={(event) => updateSelectedHumanSettlement({ relatedLabels: event.target.value.split(/[、,，\n]/).map((item) => item.trim()).filter(Boolean) })} /></label>
+              <div className="map-editor-coordinate-grid">
+                <label>行动阶段<select value={resolvedSelectedProfile.actionStage} onChange={(event) => updateSelectedHumanSettlement({ actionStage: event.target.value as ActionStageId })}>{Object.entries(actionStages).map(([id, item]) => <option key={id} value={id}>{item.label}</option>)}</select></label>
+                <label>维护或行动者<input value={resolvedSelectedProfile.steward ?? ""} placeholder="待共同确认" onChange={(event) => updateSelectedHumanSettlement({ steward: event.target.value })} /></label>
+              </div>
+              <label>下一步<textarea rows={3} value={resolvedSelectedProfile.nextAction ?? ""} placeholder="接下来需要核实、讨论、实施或复查什么？" onChange={(event) => updateSelectedHumanSettlement({ nextAction: event.target.value })} /></label>
+            </div> : null}
             {selectedFeature ? <div className="map-editor-properties-section"><h2>地点字段</h2>
               <label>地点类型<select value={selectedFeature.featureType} onChange={(event) => updateDraft((next) => { next.features = next.features.map((item) => item.id === selectedFeature.id ? { ...item, featureType: event.target.value as MapFeatureType } : item); return next; })}>{villageTopicById[featureTopicId(selectedFeature.featureType) ?? activeTopicId].featureTypes.map((type) => <option key={type} value={type}>{mapFeatureLabels[type]}</option>)}</select></label>
               <div className="map-editor-coordinate-grid"><label>经度<input type="number" step="0.000001" value={selectedFeature.longitude} onChange={(event) => updateDraft((next) => { const longitude = Number(event.target.value); next.features = next.features.map((item) => item.id === selectedFeature.id ? { ...item, longitude, geometry: { type: "Point", coordinates: [longitude, item.latitude] } } : item); return next; }, `field:${selectionKey(selection)}:longitude`)} /></label><label>纬度<input type="number" step="0.000001" value={selectedFeature.latitude} onChange={(event) => updateDraft((next) => { const latitude = Number(event.target.value); next.features = next.features.map((item) => item.id === selectedFeature.id ? { ...item, latitude, geometry: { type: "Point", coordinates: [item.longitude, latitude] } } : item); return next; }, `field:${selectionKey(selection)}:latitude`)} /></label></div>

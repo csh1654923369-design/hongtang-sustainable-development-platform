@@ -80,6 +80,7 @@ export function MapFilterPanel({ filters, availableTypes, counts, onChange, onRe
         </div>
       ) : null}
       <div className="filter-group">
+        {!showHeading ? <p className="topic-question-intro">你想先弄清楚村里的哪件事？</p> : null}
         <div className="layer-list topic-layer-list">
           {villageTopics.map((topic) => {
             const TopicIcon = topicIcons[topic.id];

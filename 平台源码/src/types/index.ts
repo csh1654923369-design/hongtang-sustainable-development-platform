@@ -50,4 +50,5 @@ export interface SpatialFeature {
   waterSystemBranch?: "supply" | "drainage" | "both";
   topicLayerId?: string;
   topicProperties?: Record<string, string | number | null>;
+  humanSettlement?: import("@/lib/humanSettlement").HumanSettlementProfile;
 }

@@ -13,7 +13,7 @@ import {
 import { MapDetailDrawer } from "@/components/map/MapDetailDrawer";
 import { WaterSpatialDetail } from "@/components/map/WaterSpatialDetail";
 import { TopicSpatialDetail } from "@/components/map/TopicSpatialDetail";
-import { WaterTopicNavigator } from "@/components/map/WaterTopicNavigator";
+import { SettlementTopicNavigator } from "@/components/map/SettlementTopicNavigator";
 import {
   FieldworkTopicRecord,
   TopicRecordPayload,
@@ -39,6 +39,7 @@ import {
   type TopicSpatialData,
   type TopicSpatialSelection,
 } from "@/lib/topicSpatialData";
+import type { SettlementScaleId } from "@/lib/humanSettlement";
 
 function villageTopicsFromFilters(types: MapFeatureType[]): VillageTopicId[] {
   return villageTopics.filter((topic) => topic.featureTypes.some((type) => types.includes(type))).map((topic) => topic.id);
@@ -57,8 +58,11 @@ export function MapExplorer({
   activeTopic,
   topicFeatureCount = 0,
   onTopicClose = () => undefined,
+  topicLensId,
+  onTopicLensChange = () => undefined,
+  settlementScale = "village",
+  onSettlementScaleChange = () => undefined,
   waterTopicMode = "off",
-  onWaterTopicModeChange = () => undefined,
 }: {
   temporaryMapData?: TemporaryMapData;
   filters?: MapFilters;
@@ -72,8 +76,11 @@ export function MapExplorer({
   activeTopic?: VillageTopicId;
   topicFeatureCount?: number;
   onTopicClose?: () => void;
+  topicLensId?: string;
+  onTopicLensChange?: (lensId: string) => void;
+  settlementScale?: SettlementScaleId;
+  onSettlementScaleChange?: (scale: SettlementScaleId) => void;
   waterTopicMode?: WaterTopicMode;
-  onWaterTopicModeChange?: (mode: WaterTopicMode) => void;
 }) {
   const [localFilters, setLocalFilters] = useState<MapFilters>(createInitialMapFilters);
   const filters = controlledFilters ?? localFilters;
@@ -260,11 +267,15 @@ export function MapExplorer({
     () => waterSelection && waterSystem ? waterSelectionRelatedIds(waterSelection, waterSystem) : [],
     [waterSelection, waterSystem],
   );
-  const changeWaterTopicMode = useCallback((next: WaterTopicMode) => {
+  const changeTopicLens = useCallback((next: string) => {
     clearSelection();
     setFiltersOpen(false);
-    onWaterTopicModeChange(next);
-  }, [clearSelection, onWaterTopicModeChange]);
+    onTopicLensChange(next);
+  }, [clearSelection, onTopicLensChange]);
+  const changeSettlementScale = useCallback((next: SettlementScaleId) => {
+    clearSelection();
+    onSettlementScaleChange(next);
+  }, [clearSelection, onSettlementScaleChange]);
   const selectRelatedWaterItem = useCallback((id: string) => {
     const next = findWaterSelection(waterSystem, id);
     if (next) selectSpatial(next);
@@ -310,7 +321,7 @@ export function MapExplorer({
         </>
       ) : null}
       <div className="map-canvas-wrap">
-        <WaterTopicNavigator data={waterSystem} mode={waterTopicMode} onModeChange={changeWaterTopicMode} topicId={activeTopic} featureCount={topicFeatureCount} onTopicClose={onTopicClose} />
+        <SettlementTopicNavigator data={waterSystem} topicId={activeTopic} featureCount={topicFeatureCount} lensId={topicLensId} onLensChange={changeTopicLens} scale={settlementScale} onScaleChange={changeSettlementScale} onTopicClose={onTopicClose} />
         {showFilterControls ? (
           <div className="map-mobile-toolbar">
             <button className="button button-secondary" onClick={() => setFiltersOpen((value) => !value)}><ListFilter size={17} />专题</button>

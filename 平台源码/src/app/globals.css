@@ -1754,6 +1754,126 @@ h1, h2, h3, p { margin-top: 0; }
     pointer-events: none;
   }
 }
+
+/* V1.2：问题驱动的人居系统导航、资料核实与行动闭环 */
+.topic-question-intro {
+  margin: 2px 8px 12px;
+  color: #425f54;
+  font-size: .72rem;
+  font-weight: 760;
+  line-height: 1.55;
+}
+.settlement-topic-navigator {
+  width: min(398px, calc(100% - 36px));
+  max-height: calc(100dvh - 104px);
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--active-topic-color) 35%, transparent) transparent;
+}
+.settlement-topic-navigator .water-topic-heading > span { background: var(--active-topic-color) !important; }
+.settlement-topic-navigator .water-topic-heading button:hover,
+.settlement-topic-navigator .water-topic-modes button.active {
+  border-color: var(--active-topic-color);
+  background: var(--active-topic-color);
+}
+.settlement-topic-navigator .water-topic-modes button.active { box-shadow: 0 5px 13px color-mix(in srgb, var(--active-topic-color) 28%, transparent); }
+.settlement-topic-lenses button { line-height: 1.25; }
+.settlement-scale-switch {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  margin-top: 9px;
+}
+.settlement-scale-switch > span {
+  color: #6a7e77;
+  font-size: .62rem;
+  font-weight: 760;
+  white-space: nowrap;
+}
+.settlement-scale-switch > div { display: flex; flex-wrap: wrap; gap: 4px; }
+.settlement-scale-switch button {
+  min-height: 30px;
+  padding: 4px 8px;
+  border: 1px solid #d4dfda;
+  border-radius: 8px;
+  color: #566c63;
+  background: #fff;
+  font: inherit;
+  font-size: .61rem;
+  font-weight: 720;
+  cursor: pointer;
+}
+.settlement-scale-switch button.active { border-color: var(--active-topic-color); color: #fff; background: var(--active-topic-color); }
+.settlement-topic-reading { background: color-mix(in srgb, var(--active-topic-color) 10%, white); }
+.settlement-topic-reading .water-topic-chain span { color: var(--active-topic-color); }
+.settlement-topic-reading .water-topic-chain b { color: color-mix(in srgb, var(--active-topic-color) 82%, #173b4d); }
+.settlement-scale-reading {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding-top: 8px;
+  border-top: 1px solid color-mix(in srgb, var(--active-topic-color) 18%, transparent);
+  color: #5d7169;
+  font-size: .64rem;
+  line-height: 1.45;
+}
+.settlement-scale-reading svg { flex: none; margin-top: 1px; color: var(--active-topic-color); }
+.settlement-system-links { display: grid; gap: 6px; margin-top: 10px; }
+.settlement-system-links > span { display: flex; align-items: center; gap: 5px; color: #6c7e77; font-size: .61rem; font-weight: 740; }
+.settlement-system-links > span svg { color: var(--active-topic-color); }
+.settlement-system-links > div { display: flex; flex-wrap: wrap; gap: 4px; }
+.settlement-system-links b {
+  padding: 4px 7px;
+  border-radius: 999px;
+  color: color-mix(in srgb, var(--active-topic-color) 78%, #263d34);
+  background: color-mix(in srgb, var(--active-topic-color) 11%, white);
+  font-size: .59rem;
+}
+.map-explorer.detail-open .settlement-scale-switch,
+.map-explorer.detail-open .settlement-system-links,
+.gaussian-home.detail-open .settlement-scale-switch,
+.gaussian-home.detail-open .settlement-system-links { display: none; }
+
+.settlement-detail { display: grid; gap: 11px; margin: 15px 0; padding-top: 14px; border-top: 1px solid #dfe6e2; }
+.settlement-detail-heading { display: flex; align-items: center; gap: 7px; color: #2f644c; font-size: .77rem; }
+.settlement-state-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; }
+.settlement-state-grid article { display: grid; align-content: start; gap: 4px; min-width: 0; padding: 10px; border: 1px solid #dbe5df; border-radius: 11px; background: #f7faf8; }
+.settlement-state-grid article[data-evidence-status="pending"] { border-color: #e8d7b8; background: #fff9ef; }
+.settlement-state-grid article[data-evidence-status="verified"] { border-color: #bcd9c7; background: #eff8f2; }
+.settlement-state-grid article[data-action-stage="in-progress"] { border-color: #bed6df; background: #eef7fa; }
+.settlement-state-grid article > span { display: flex; align-items: center; gap: 5px; color: #6c7f76; font-size: .59rem; font-weight: 720; }
+.settlement-state-grid article > strong { color: #294d3e; font-size: .74rem; }
+.settlement-state-grid article > p { margin: 0; color: #65766f; font-size: .62rem; line-height: 1.45; }
+.settlement-detail-block { display: grid; gap: 7px; }
+.settlement-detail-block > span,
+.settlement-timeline > span { display: flex; align-items: center; gap: 6px; color: #456258; font-size: .68rem; }
+.settlement-relation-tags { display: flex; flex-wrap: wrap; gap: 5px; }
+.settlement-relation-tags em { padding: 5px 8px; border: 1px solid #d6e2dc; border-radius: 999px; color: #48645a; background: #f4f8f5; font-size: .61rem; font-style: normal; font-weight: 680; }
+.settlement-detail-meta { display: grid; gap: 7px; padding: 10px; border-radius: 10px; background: #f5f7f5; }
+.settlement-detail-meta span { display: grid; grid-template-columns: 16px 82px minmax(0,1fr); align-items: center; gap: 6px; color: #65766f; font-size: .63rem; }
+.settlement-detail-meta b { color: #354e44; }
+.settlement-timeline { display: grid; gap: 7px; }
+.settlement-timeline > div { display: flex; flex-wrap: wrap; gap: 5px; }
+.settlement-timeline time { padding: 4px 7px; border-radius: 7px; color: #64766e; background: #f0f4f1; font-size: .59rem; }
+.settlement-next-step { display: grid; grid-template-columns: 20px minmax(0,1fr); gap: 7px; padding: 11px; border-radius: 11px; color: #496057; background: #edf5f0; }
+.settlement-next-step > svg { margin-top: 1px; color: #2f6f50; }
+.settlement-next-step > div { display: grid; gap: 3px; }
+.settlement-next-step strong { color: #2f5141; font-size: .68rem; }
+.settlement-next-step span { font-size: .6rem; line-height: 1.45; }
+.settlement-next-step a { grid-column: 2; min-height: 34px; display: inline-flex; align-items: center; justify-content: center; gap: 5px; padding: 6px 9px; border-radius: 8px; color: #fff; background: #2f6f50; font-size: .63rem; font-weight: 760; }
+.settlement-next-step a:hover { background: #245940; }
+.map-editor-human-settlement-section { border-color: #cfe0d6; background: #f4f9f6; }
+.map-editor-human-settlement-section h2 { color: #2d694b; }
+
+@media (max-width: 680px) {
+  .settlement-topic-navigator { max-height: calc(100dvh - 124px); }
+  .settlement-topic-navigator .water-topic-reading { display: none; }
+  .settlement-scale-switch { grid-template-columns: 1fr; gap: 5px; }
+  .settlement-scale-switch button { min-height: 34px; }
+  .settlement-system-links { margin-top: 8px; }
+  .settlement-state-grid { grid-template-columns: 1fr; }
+}
 .map-editor-data-status {
   min-height: 180px;
   display: grid;

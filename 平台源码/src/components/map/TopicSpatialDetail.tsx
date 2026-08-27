@@ -4,6 +4,7 @@ import { CalendarDays, Layers3, MapPin, X } from "lucide-react";
 import type { TopicSpatialSelection } from "@/lib/topicSpatialData";
 import { topicFeatureCenter, topicGeometryLabel } from "@/lib/topicSpatialData";
 import { villageTopicById } from "@/lib/villageTopics";
+import { HumanSettlementDetail } from "@/components/map/HumanSettlementDetail";
 
 export function TopicSpatialDetail({ selection, onClose }: { selection: TopicSpatialSelection; onClose: () => void }) {
   const { item, layer } = selection;
@@ -22,13 +23,14 @@ export function TopicSpatialDetail({ selection, onClose }: { selection: TopicSpa
         <span><CalendarDays size={16} /><b>更新</b>{item.updatedAt}</span>
       </div>
       <section className="detail-topic-records" aria-label="专题属性">
-        <div className="detail-topic-heading"><Layers3 size={17} /><strong>{topicGeometryLabel(layer.geometryType)}属性</strong><span>试验数据</span></div>
+        <div className="detail-topic-heading"><Layers3 size={17} /><strong>{topicGeometryLabel(layer.geometryType)}属性</strong><span>{item.status}</span></div>
         <article><dl>{layer.fields.map((field) => {
           const value = item.properties[field.key];
           if (value === undefined || value === null || value === "") return null;
           return <div key={field.key}><dt>{field.label}</dt><dd>{String(value)}{field.unit ? ` ${field.unit}` : ""}</dd></div>;
         })}</dl></article>
       </section>
+      <HumanSettlementDetail topicId={item.topicId} status={item.status} updatedAt={item.updatedAt} profile={item.humanSettlement} featureId={item.id} editorKind="topic-spatial" />
       <div className="detail-coordinates">中心坐标：{center[0].toFixed(6)}, {center[1].toFixed(6)}</div>
     </aside>
   );

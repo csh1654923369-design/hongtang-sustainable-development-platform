@@ -7,13 +7,14 @@ import { MapDetailDrawer } from "@/components/map/MapDetailDrawer";
 import { initialMapFilters, mapFeatureTypeToFilterGroup, verifiedMapFeatureTypes, type MapFilters } from "@/components/map/MapFilterPanel";
 import { WaterSpatialDetail } from "@/components/map/WaterSpatialDetail";
 import { TopicSpatialDetail } from "@/components/map/TopicSpatialDetail";
-import { WaterTopicNavigator } from "@/components/map/WaterTopicNavigator";
+import { SettlementTopicNavigator } from "@/components/map/SettlementTopicNavigator";
 import { MapFeatureType, type SpatialFeature } from "@/types";
 import { computeMapBubbleLayout, isMapScreenAnchor, type MapScreenAnchor } from "@/lib/mapBubble";
 import { fetchPlatformDataset } from "@/lib/platformData";
 import { sitePath } from "@/lib/sitePath";
 import type { TemporaryMapData } from "@/lib/temporaryMapEdits";
 import type { VillageTopicId } from "@/lib/villageTopics";
+import type { SettlementScaleId } from "@/lib/humanSettlement";
 import {
   findTopicSpatialSelection,
   topicPointFeatures,
@@ -46,16 +47,22 @@ export function GaussianHome({
   activeTopic,
   topicFeatureCount = 0,
   onTopicClose = () => undefined,
+  topicLensId,
+  onTopicLensChange = () => undefined,
+  settlementScale = "village",
+  onSettlementScaleChange = () => undefined,
   waterTopicMode = "off",
-  onWaterTopicModeChange = () => undefined,
 }: {
   temporaryMapData?: TemporaryMapData;
   filters?: MapFilters;
   activeTopic?: VillageTopicId;
   topicFeatureCount?: number;
   onTopicClose?: () => void;
+  topicLensId?: string;
+  onTopicLensChange?: (lensId: string) => void;
+  settlementScale?: SettlementScaleId;
+  onSettlementScaleChange?: (scale: SettlementScaleId) => void;
   waterTopicMode?: WaterTopicMode;
-  onWaterTopicModeChange?: (mode: WaterTopicMode) => void;
 }) {
   const [state, setState] = useState<GaussianState>("loading");
   const [loadedRealFeatures, setLoadedRealFeatures] = useState<SpatialFeature[]>([]);
@@ -348,9 +355,13 @@ export function GaussianHome({
     height: bubbleLayout.height,
     "--bubble-arrow-y": `${bubbleLayout.arrowY}px`,
   } as CSSProperties & Record<"--bubble-arrow-y", string>) : undefined;
-  const changeWaterTopicMode = (next: WaterTopicMode) => {
+  const changeTopicLens = (next: string) => {
     clearSelection();
-    onWaterTopicModeChange(next);
+    onTopicLensChange(next);
+  };
+  const changeSettlementScale = (next: SettlementScaleId) => {
+    clearSelection();
+    onSettlementScaleChange(next);
   };
   const selectRelatedWaterItem = (id: string) => {
     frameRef.current?.contentWindow?.postMessage(
@@ -370,7 +381,7 @@ export function GaussianHome({
       data-active-village-topic={activeTopic ?? "off"}
       data-water-topic-mode={waterTopicMode}
     >
-      <WaterTopicNavigator data={waterSystem} mode={waterTopicMode} onModeChange={changeWaterTopicMode} topicId={activeTopic} featureCount={topicFeatureCount} onTopicClose={onTopicClose} />
+      <SettlementTopicNavigator data={waterSystem} topicId={activeTopic} featureCount={topicFeatureCount} lensId={topicLensId} onLensChange={changeTopicLens} scale={settlementScale} onScaleChange={changeSettlementScale} onTopicClose={onTopicClose} />
       <iframe
         id="hongtang-gaussian-frame"
         ref={frameRef}

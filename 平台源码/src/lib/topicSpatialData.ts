@@ -1,5 +1,6 @@
 import { MapFeatureType, type SpatialFeature } from "@/types";
 import type { VillageTopicId } from "@/lib/villageTopics";
+import type { HumanSettlementProfile } from "@/lib/humanSettlement";
 
 export type TopicGeometryType = "point" | "line" | "polygon";
 export type TopicCoordinate = [number, number];
@@ -42,6 +43,7 @@ export interface TopicSpatialFeature {
   isDemo: true;
   geometry: TopicGeometry;
   properties: Record<string, string | number | null>;
+  humanSettlement?: HumanSettlementProfile;
 }
 
 export interface TopicSpatialData {
@@ -142,6 +144,7 @@ export function topicPointFeatures(data?: TopicSpatialData): SpatialFeature[] {
       imageLabel: layer.title,
       topicLayerId: layer.id,
       topicProperties: item.properties,
+      humanSettlement: item.humanSettlement,
     } satisfies SpatialFeature];
   });
 }

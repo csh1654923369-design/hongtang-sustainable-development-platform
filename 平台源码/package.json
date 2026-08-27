@@ -1,6 +1,6 @@
 {
   "name": "hongtang-sustainable-development-platform",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "private": true,
   "scripts": {
     "dev": "next dev --webpack",
@@ -25,6 +25,7 @@
     "test:mobile-home": "node scripts/verify-mobile-home.mjs",
     "test:photo-assets": "node scripts/verify-photo-assets.mjs",
     "test:pages": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --test scripts/verify-github-pages.mjs",
+    "test:v12": "node scripts/verify-v12-human-settlement.mjs",
     "build:pages": "node scripts/build-github-pages.mjs"
   },
   "dependencies": {

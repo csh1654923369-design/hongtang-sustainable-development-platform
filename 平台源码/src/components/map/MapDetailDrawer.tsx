@@ -7,6 +7,7 @@ import { CalendarDays, ChevronLeft, ChevronRight, ClipboardList, MapPin, X } fro
 import { SpatialFeature } from "@/types";
 import { mapFeatureLabels } from "@/lib/utils";
 import type { FieldworkTopicRecord } from "@/lib/spatialData";
+import { HumanSettlementDetail } from "@/components/map/HumanSettlementDetail";
 
 type MapDetailDrawerProps = {
   feature?: SpatialFeature;
@@ -65,7 +66,7 @@ export function MapDetailDrawer({ feature, onClose, variant = "map", records = [
       </div>
       {records.length ? (
         <section className="detail-topic-records" aria-label="专题调研记录">
-          <div className="detail-topic-heading"><ClipboardList size={17} /><strong>专题调研记录</strong><span>示例数据</span></div>
+          <div className="detail-topic-heading"><ClipboardList size={17} /><strong>专题调研记录</strong><span>{records.some((record) => record.reviewStatus === "unverified") ? "待核实" : "已有记录"}</span></div>
           {records.map((record) => (
             <article key={record.id}>
               <div><strong>{record.recordTitle}</strong><time>{record.surveyDate}</time></div>
@@ -79,6 +80,7 @@ export function MapDetailDrawer({ feature, onClose, variant = "map", records = [
           ))}
         </section>
       ) : null}
+      <HumanSettlementDetail featureType={feature.featureType} status={feature.status} updatedAt={feature.updatedAt} profile={feature.humanSettlement} featureId={feature.id} editorKind="base-point" recordDates={records.map((record) => record.surveyDate)} />
       <div className="detail-coordinates">坐标：{feature.longitude.toFixed(6)}, {feature.latitude.toFixed(6)}</div>
     </aside>
   );

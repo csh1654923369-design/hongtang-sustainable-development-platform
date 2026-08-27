@@ -8,6 +8,7 @@ import {
   waterLineStyles,
   waterNodeLabels,
 } from "@/lib/spatialData";
+import { HumanSettlementDetail } from "@/components/map/HumanSettlementDetail";
 
 export function WaterSpatialDetail({
   selection,
@@ -103,7 +104,8 @@ export function WaterSpatialDetail({
       {openQuestions.length ? (
         <section className="water-questions-card"><div><CircleHelp size={17} /><strong>还需要向村民了解</strong></div><ul>{openQuestions.map((question) => <li key={question}>{question}</li>)}</ul></section>
       ) : null}
-      <div className="water-spatial-note"><strong>当前数据边界</strong><p>{data.notice}</p></div>
+      <HumanSettlementDetail topicId="water" status={item.status} updatedAt={data.updatedAt} profile={item.humanSettlement} featureId={item.id} editorKind={selection.type === "node" ? "water-node" : selection.type === "line" ? "water-line" : "water-zone"} />
+      <div className="water-spatial-note"><strong>还需要核实</strong><p>{data.notice}</p></div>
     </aside>
   );
 }

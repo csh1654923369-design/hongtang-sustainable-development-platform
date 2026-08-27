@@ -23,6 +23,11 @@ import {
 } from "@/lib/temporaryMapEdits";
 import type { WaterSystemData, WaterTopicMode } from "@/lib/spatialData";
 import type { TopicSpatialData } from "@/lib/topicSpatialData";
+import {
+  defaultTopicLensId,
+  findTopicLens,
+  type SettlementScaleId,
+} from "@/lib/humanSettlement";
 import { countTopicFeatures, villageTopicById, villageTopics, type VillageTopicId } from "@/lib/villageTopics";
 import { MapFeatureType, type SpatialFeature } from "@/types";
 
@@ -47,6 +52,8 @@ export function HomeExperience() {
   const [overlayMode, setOverlayMode] = useState<VillageOverlayMode>("aerial");
   const [baseLayerMode, setBaseLayerMode] = useState<VillageBaseLayerMode>("satellite");
   const [activeTopic, setActiveTopic] = useState<VillageTopicId>();
+  const [topicLensId, setTopicLensId] = useState<string>();
+  const [settlementScale, setSettlementScale] = useState<SettlementScaleId>("village");
   const [waterTopicMode, setWaterTopicMode] = useState<WaterTopicMode>("off");
   const [filters, setFilters] = useState<MapFilters>(createInitialMapFilters);
   const [filterOpen, setFilterOpen] = useState(false);
@@ -139,11 +146,22 @@ export function HomeExperience() {
     if (!activeTopic) filtersBeforeTopicRef.current = filters;
     setFilterOpen(false);
     setActiveTopic(topicId);
+    setTopicLensId(defaultTopicLensId(topicId));
+    setSettlementScale("village");
     setFilters({ types: [...villageTopicById[topicId].featureTypes] });
     setWaterTopicMode(topicId === "water" ? "overview" : "off");
   };
+  const changeTopicLens = (nextLensId: string) => {
+    if (!activeTopic) return;
+    const nextLens = findTopicLens(activeTopic, nextLensId);
+    setTopicLensId(nextLens.id);
+    if (!nextLens.scales.includes(settlementScale)) setSettlementScale(nextLens.scales[0]);
+    setWaterTopicMode(activeTopic === "water" ? nextLens.id as Exclude<WaterTopicMode, "off"> : "off");
+  };
   const closeTopic = () => {
     setActiveTopic(undefined);
+    setTopicLensId(undefined);
+    setSettlementScale("village");
     setWaterTopicMode("off");
     if (filtersBeforeTopicRef.current) setFilters(filtersBeforeTopicRef.current);
     filtersBeforeTopicRef.current = undefined;
@@ -212,7 +230,7 @@ export function HomeExperience() {
             title="在新窗口打开红塘地图数据编辑"
           >
             <span className="home-map-editor-entry-icon" aria-hidden="true"><PencilRuler size={16} /></span>
-            <span className="home-map-editor-entry-copy"><strong>地图编辑</strong><small>临时试验工具</small></span>
+            <span className="home-map-editor-entry-copy"><strong>地图编辑</strong><small>刷新后还原</small></span>
           </Link>
         </div>
       </div>
@@ -227,7 +245,7 @@ export function HomeExperience() {
           <span className="home-topic-entry-icon"><Layers3 size={22} aria-hidden="true" /></span>
           <span className="home-topic-entry-copy">
             <strong>专题</strong>
-            <small>已选择{selectedTopicCount}/{villageTopics.length}个专题</small>
+            <small>{filterOpen ? `已选择${selectedTopicCount}/${villageTopics.length}个专题` : "从一个问题开始"}</small>
           </span>
           <span className={`home-topic-entry-action${filterOpen ? " open" : ""}`}>
             {filterOpen ? "收起" : "展开"}
@@ -252,8 +270,8 @@ export function HomeExperience() {
         </div>
       </div>
       {renderedView === "3d"
-        ? <GaussianHome temporaryMapData={temporaryMapData} filters={filters} activeTopic={activeTopic} topicFeatureCount={activeTopicFeatureCount} onTopicClose={closeTopic} waterTopicMode={waterTopicMode} onWaterTopicModeChange={setWaterTopicMode} />
-        : <main className="home-map-mode" aria-label="红塘村二维地图"><MapExplorer temporaryMapData={temporaryMapData} filters={filters} showFilterControls={false} showBasemapControls={false} overlayMode={overlayMode} onOverlayModeChange={setOverlayMode} baseLayerMode={baseLayerMode} onBaseLayerModeChange={setBaseLayerMode} activeTopic={activeTopic} topicFeatureCount={activeTopicFeatureCount} onTopicClose={closeTopic} waterTopicMode={waterTopicMode} onWaterTopicModeChange={setWaterTopicMode} /></main>}
+        ? <GaussianHome temporaryMapData={temporaryMapData} filters={filters} activeTopic={activeTopic} topicFeatureCount={activeTopicFeatureCount} onTopicClose={closeTopic} topicLensId={topicLensId} onTopicLensChange={changeTopicLens} settlementScale={settlementScale} onSettlementScaleChange={setSettlementScale} waterTopicMode={waterTopicMode} />
+        : <main className="home-map-mode" aria-label="红塘村二维地图"><MapExplorer temporaryMapData={temporaryMapData} filters={filters} showFilterControls={false} showBasemapControls={false} overlayMode={overlayMode} onOverlayModeChange={setOverlayMode} baseLayerMode={baseLayerMode} onBaseLayerModeChange={setBaseLayerMode} activeTopic={activeTopic} topicFeatureCount={activeTopicFeatureCount} onTopicClose={closeTopic} topicLensId={topicLensId} onTopicLensChange={changeTopicLens} settlementScale={settlementScale} onSettlementScaleChange={setSettlementScale} waterTopicMode={waterTopicMode} /></main>}
     </div>
   );
 }
